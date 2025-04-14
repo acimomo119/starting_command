@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>运动会指令播放器</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            font-size: 18px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #readyBtn {
+            background-color: #3498db;
+        }
+        #readyBtn:hover {
+            background-color: #2980b9;
+        }
+        #setBtn {
+            background-color: #e67e22;
+        }
+        #setBtn:hover {
+            background-color: #d35400;
+        }
+        #goBtn {
+            background-color: #2ecc71;
+        }
+        #goBtn:hover {
+            background-color: #27ae60;
+        }
+        #autoBtn {
+            background-color: #9b59b6;
+        }
+        #autoBtn:hover {
+            background-color: #8e44ad;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #ecf0f1;
+        }
+    </style>
+</head>
+<body>
+    <h1>运动会指令播放器</h1>
+    
+    <button id="readyBtn" class="btn">各就位</button>
+    <button id="setBtn" class="btn">预备</button>
+    <button id="goBtn" class="btn">出发</button>
+    <button id="autoBtn" class="btn">自动播放</button>
+    
+    <div id="status" class="status">准备就绪</div>
+
+    <!-- 音频元素 - 在实际使用时替换为你的音频文件 -->
+    <audio id="audio1" src="1.mp3"></audio>
+    <audio id="audio2" src="2.mp3"></audio>
+    <audio id="audio3" src="3.mp3"></audio>
+
+    <script>
+        // 获取DOM元素
+        const readyBtn = document.getElementById('readyBtn');
+        const setBtn = document.getElementById('setBtn');
+        const goBtn = document.getElementById('goBtn');
+        const autoBtn = document.getElementById('autoBtn');
+        const statusDiv = document.getElementById('status');
+        
+        const audio1 = document.getElementById('audio1');
+        const audio2 = document.getElementById('audio2');
+        const audio3 = document.getElementById('audio3');
+
+        // 单个音频播放函数
+        function playAudio(audioElement, message) {
+            // 先暂停并重置到开头
+            audioElement.pause();
+            audioElement.currentTime = 0;
+            
+            // 播放音频
+            audioElement.play()
+                .then(() => {
+                    statusDiv.textContent = message;
+                })
+                .catch(error => {
+                    statusDiv.textContent = `播放错误: ${error.message}`;
+                    console.error('播放错误:', error);
+                });
+        }
+
+        // 按钮事件监听
+        readyBtn.addEventListener('click', () => {
+            playAudio(audio1, "播放: 各就位");
+        });
+
+        setBtn.addEventListener('click', () => {
+            playAudio(audio2, "播放: 预备");
+        });
+
+        goBtn.addEventListener('click', () => {
+            playAudio(audio3, "播放: 出发");
+        });
+
+        // 自动播放序列
+        autoBtn.addEventListener('click', () => {
+            statusDiv.textContent = "自动播放序列开始...";
+            
+            // 播放第一个音频
+            playAudio(audio1, "播放: 各就位");
+            
+            // 第一个随机延迟 (1.5-3秒)
+            const delay1 = 1500 + Math.random() * 1500;
+            
+            setTimeout(() => {
+                playAudio(audio2, "播放: 预备");
+                
+                // 第二个随机延迟 (2-4秒)
+                const delay2 = 2000 + Math.random() * 2000;
+                
+                setTimeout(() => {
+                    playAudio(audio3, "播放: 出发");
+                    statusDiv.textContent = "自动播放序列完成";
+                }, delay2);
+            }, delay1);
+        });
+
+        // 音频加载检查
+        window.addEventListener('load', () => {
+            const audios = [audio1, audio2, audio3];
+            let allLoaded = true;
+            
+            audios.forEach((audio, index) => {
+                if (audio.readyState === 0) { // 0 = HAVE_NOTHING
+                    allLoaded = false;
+                    console.warn(`音频${index+1}可能未正确加载`);
+                }
+            });
+            
+            if (!allLoaded) {
+                statusDiv.textContent = "注意: 部分音频可能未正确加载，请检查控制台";
+            }
+        });
+    </script>
+</body>
+</html>
