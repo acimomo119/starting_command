@@ -72,3 +72,124 @@
     
     <button id="readyBtn" class="btn">各就位</button>
     <button id="setBtn" class="btn">预备</button>
+    <button id="goBtn" class="btn">出发</button>
+    <button id="autoBtn" class="btn">自动播放</button>
+    
+    <div id="status" class="status">准备就绪</div>
+    <div id="countdown" class="countdown"></div>
+
+    <!-- 音频元素 -->
+    <audio id="audio1" src="1.mp3"></audio>
+    <audio id="audio2" src="2.mp3"></audio>
+    <audio id="audio3" src="3.mp3"></audio>
+
+    <script>
+        // 获取DOM元素
+        const readyBtn = document.getElementById('readyBtn');
+        const setBtn = document.getElementById('setBtn');
+        const goBtn = document.getElementById('goBtn');
+        const autoBtn = document.getElementById('autoBtn');
+        const statusDiv = document.getElementById('status');
+        const countdownDiv = document.getElementById('countdown');
+        
+        const audio1 = document.getElementById('audio1');
+        const audio2 = document.getElementById('audio2');
+        const audio3 = document.getElementById('audio3');
+
+        // 单个音频播放函数
+        function playAudio(audioElement, message) {
+            // 先暂停并重置到开头
+            audioElement.pause();
+            audioElement.currentTime = 0;
+            
+            // 播放音频
+            audioElement.play()
+                .then(() => {
+                    statusDiv.textContent = message;
+                })
+                .catch(error => {
+                    statusDiv.textContent = `播放错误: ${error.message}`;
+                    console.error('播放错误:', error);
+                });
+        }
+
+        // 按钮事件监听
+        readyBtn.addEventListener('click', () => {
+            playAudio(audio1, "播放: 各就位");
+            countdownDiv.textContent = "";
+        });
+
+        setBtn.addEventListener('click', () => {
+            playAudio(audio2, "播放: 预备");
+            countdownDiv.textContent = "";
+        });
+
+        goBtn.addEventListener('click', () => {
+            playAudio(audio3, "播放: 出发");
+            countdownDiv.textContent = "";
+        });
+
+        // 自动播放序列
+        autoBtn.addEventListener('click', () => {
+            statusDiv.textContent = "自动播放序列开始...";
+            
+            // 生成随机间隔时间
+            const delay1 = 1500 + Math.random() * 1500; // 1.5-3秒
+            const delay2 = 2500 + Math.random() * 2500; // 2.5-5秒
+            
+            // 显示间隔时间
+            statusDiv.innerHTML = `自动播放中:<br>
+                                 各就位 → 预备: ${(delay1/1000).toFixed(1)}秒<br>
+                                 预备 → 出发: ${(delay2/1000).toFixed(1)}秒`;
+            
+            // 播放第一个音频
+            playAudio(audio1, "播放: 各就位");
+            
+            // 第一个倒计时
+            startCountdown(delay1, () => {
+                playAudio(audio2, "播放: 预备");
+                
+                // 第二个倒计时
+                startCountdown(delay2, () => {
+                    playAudio(audio3, "播放: 出发");
+                    statusDiv.textContent = "自动播放序列完成";
+                    countdownDiv.textContent = "";
+                });
+            });
+        });
+
+        // 倒计时函数
+        function startCountdown(duration, callback) {
+            let remaining = duration / 1000; // 转换为秒
+            countdownDiv.textContent = `倒计时: ${remaining.toFixed(1)}秒`;
+            
+            const interval = setInterval(() => {
+                remaining -= 0.1;
+                countdownDiv.textContent = `倒计时: ${remaining.toFixed(1)}秒`;
+                
+                if (remaining <= 0) {
+                    clearInterval(interval);
+                    callback();
+                }
+            }, 100);
+        }
+
+        // 音频加载检查
+        window.addEventListener('load', () => {
+            const audios = [audio1, audio2, audio3];
+            let allLoaded = true;
+            
+            audios.forEach((audio, index) => {
+                if (audio.readyState === 0) { // 0 = HAVE_NOTHING
+                    allLoaded = false;
+                    console.warn(`音频${index+1}可能未正确加载`);
+                }
+            });
+            
+            if (!allLoaded) {
+                statusDiv.textContent = "注意: 部分音频可能未正确加载，请检查控制台";
+            }
+        });
+    </script>
+</body>
+</html>
