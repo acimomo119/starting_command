@@ -31,26 +31,17 @@
         #readyBtn {
             background-color: #3498db;
         }
-        #readyBtn:hover {
-            background-color: #2980b9;
-        }
         #setBtn {
             background-color: #e67e22;
-        }
-        #setBtn:hover {
-            background-color: #d35400;
         }
         #goBtn {
             background-color: #2ecc71;
         }
-        #goBtn:hover {
-            background-color: #27ae60;
-        }
         #autoBtn {
             background-color: #9b59b6;
         }
-        #autoBtn:hover {
-            background-color: #8e44ad;
+        #startTimerBtn {
+            background-color: #e74c3c;
         }
         .status {
             margin-top: 20px;
@@ -65,6 +56,42 @@
             color: #e74c3c;
             margin: 10px 0;
         }
+        #cameraContainer {
+            margin: 20px auto;
+            width: 300px;
+            display: none;
+            position: relative;
+        }
+        #video {
+            width: 100%;
+            background: #000;
+        }
+        #canvas {
+            display: none;
+        }
+        .motion-alert {
+            color: red;
+            font-weight: bold;
+        }
+        .threshold-control {
+            margin: 15px 0;
+            display: none;
+        }
+        .threshold-label {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+        }
+        #centerLine {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 2px;
+            background-color: red;
+            transform: translateX(-1px);
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
@@ -74,11 +101,28 @@
     <button id="setBtn" class="btn">预备</button>
     <button id="goBtn" class="btn">出发</button>
     <button id="autoBtn" class="btn">自动播放</button>
+    <button id="startTimerBtn" class="btn">准备计时</button>
+    
+    <div class="threshold-control">
+        <p>运动检测灵敏度</p>
+        <input type="range" id="thresholdSlider" min="10" max="100" value="30">
+        <div class="threshold-label">
+            <span>高敏感</span>
+            <span>低敏感</span>
+        </div>
+        <p>当前阈值: <span id="thresholdValue">30</span></p>
+    </div>
     
     <div id="status" class="status">准备就绪</div>
     <div id="countdown" class="countdown"></div>
 
-    <!-- 音频元素 -->
+    <div id="cameraContainer">
+        <div id="centerLine"></div>
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+        <p id="motionStatus">摄像头未检测到运动</p>
+    </div>
+
     <audio id="audio1" src="1.mp3"></audio>
     <audio id="audio2" src="2.mp3"></audio>
     <audio id="audio3" src="3.mp3"></audio>
@@ -89,23 +133,48 @@
         const setBtn = document.getElementById('setBtn');
         const goBtn = document.getElementById('goBtn');
         const autoBtn = document.getElementById('autoBtn');
+        const startTimerBtn = document.getElementById('startTimerBtn');
         const statusDiv = document.getElementById('status');
         const countdownDiv = document.getElementById('countdown');
+        const cameraContainer = document.getElementById('cameraContainer');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const motionStatus = document.getElementById('motionStatus');
+        const thresholdControl = document.querySelector('.threshold-control');
+        const thresholdSlider = document.getElementById('thresholdSlider');
+        const thresholdValue = document.getElementById('thresholdValue');
         
         const audio1 = document.getElementById('audio1');
         const audio2 = document.getElementById('audio2');
         const audio3 = document.getElementById('audio3');
 
+        // 运动检测相关变量
+        let isMonitoring = false;
+        let lastFrame = null;
+        let motionDetectionInterval;
+        let startTime;
+        let timerInterval;
+        let currentThreshold = 30;
+
+        // 更新阈值显示
+        thresholdSlider.addEventListener('input', (e) => {
+            currentThreshold = parseInt(e.target.value);
+            thresholdValue.textContent = currentThreshold;
+        });
+
         // 单个音频播放函数
         function playAudio(audioElement, message) {
-            // 先暂停并重置到开头
             audioElement.pause();
             audioElement.currentTime = 0;
             
-            // 播放音频
             audioElement.play()
                 .then(() => {
                     statusDiv.textContent = message;
+                    // 如果是"出发"音频，开始计时
+                    if (audioElement === audio3 && isMonitoring) {
+                        startTimer();
+                    }
                 })
                 .catch(error => {
                     statusDiv.textContent = `播放错误: ${error.message}`;
@@ -133,45 +202,121 @@
         autoBtn.addEventListener('click', () => {
             statusDiv.textContent = "自动播放序列开始...";
             
-            // 生成随机间隔时间
-            const delay1 = 2500 + Math.random() * 500; // 2.5-3秒
-            const delay2 = 2500 + Math.random() * 1000; // 2.5-3.5秒
+            const delay1 = 1500 + Math.random() * 1500; // 1.5-3秒
+            const delay2 = 2500 + Math.random() * 2500; // 2.5-5秒
             
-            // 显示间隔时间
             statusDiv.innerHTML = `自动播放中:<br>
                                  各就位 → 预备: ${(delay1/1000).toFixed(1)}秒<br>
                                  预备 → 出发: ${(delay2/1000).toFixed(1)}秒`;
             
-            // 播放第一个音频
             playAudio(audio1, "播放: 各就位");
             
-            // 第一个倒计时
-            startCountdown(delay1, () => {
+            setTimeout(() => {
                 playAudio(audio2, "播放: 预备");
                 
-                // 第二个倒计时
-                startCountdown(delay2, () => {
+                setTimeout(() => {
                     playAudio(audio3, "播放: 出发");
                     statusDiv.textContent = "自动播放序列完成";
                     countdownDiv.textContent = "";
-                });
-            });
+                }, delay2);
+            }, delay1);
         });
 
-        // 倒计时函数
-        function startCountdown(duration, callback) {
-            let remaining = duration / 1000; // 转换为秒
-            countdownDiv.textContent = `倒计时: ${remaining.toFixed(1)}秒`;
+        // 准备计时和运动检测
+        startTimerBtn.addEventListener('click', () => {
+            if (isMonitoring) {
+                stopTimer();
+                return;
+            }
             
-            const interval = setInterval(() => {
-                remaining -= 0.1;
-                countdownDiv.textContent = `倒计时: ${remaining.toFixed(1)}秒`;
+            statusDiv.textContent = "准备计时...请允许摄像头访问";
+            countdownDiv.textContent = "";
+            thresholdControl.style.display = 'block';
+            
+            startCamera();
+        });
+
+        // 启动摄像头
+        function startCamera() {
+            cameraContainer.style.display = 'block';
+            
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        statusDiv.textContent = "摄像头已就绪，等待'出发'指令后开始计时";
+                        isMonitoring = true;
+                    };
+                })
+                .catch(err => {
+                    statusDiv.textContent = "摄像头访问失败: " + err.message;
+                    console.error(err);
+                });
+        }
+
+        // 开始计时
+        function startTimer() {
+            startTime = Date.now();
+            statusDiv.textContent = "计时中...检测运动中";
+            motionStatus.textContent = "等待运动...";
+            motionStatus.className = "";
+            
+            // 启动计时显示
+            timerInterval = setInterval(() => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                countdownDiv.textContent = elapsed.toFixed(2) + "秒";
+            }, 10);
+            
+            // 启动运动检测
+            lastFrame = null;
+            motionDetectionInterval = setInterval(checkMotion, 200);
+        }
+
+        // 检测运动
+        function checkMotion() {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            if (lastFrame) {
+                const diff = compareFrames(lastFrame.data, currentFrame.data);
                 
-                if (remaining <= 0) {
-                    clearInterval(interval);
-                    callback();
+                if (diff > currentThreshold) {
+                    motionStatus.textContent = `检测到运动! (强度: ${diff.toFixed(1)})`;
+                    motionStatus.className = "motion-alert";
+                    stopTimer();
+                } else {
+                    motionStatus.textContent = `检测中...当前差异: ${diff.toFixed(1)}`;
+                    motionStatus.className = "";
                 }
-            }, 100);
+            }
+            
+            lastFrame = currentFrame;
+        }
+
+        // 比较两帧差异
+        function compareFrames(frame1, frame2) {
+            let diff = 0;
+            for (let i = 0; i < frame1.length; i += 4) {
+                diff += Math.abs(frame1[i] - frame2[i]) +     // R
+                        Math.abs(frame1[i+1] - frame2[i+1]) + // G
+                        Math.abs(frame1[i+2] - frame2[i+2]);  // B
+            }
+            return diff / (frame1.length / 4 * 3); // 平均差异
+        }
+
+        // 停止计时
+        function stopTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            if (motionDetectionInterval) clearInterval(motionDetectionInterval);
+            
+            const elapsed = (Date.now() - startTime) / 1000;
+            statusDiv.textContent = `计时结束! 最终时间: ${elapsed.toFixed(2)}秒`;
+            motionStatus.textContent = "已停止检测";
+            
+            // 不关闭摄像头，允许再次计时
+            isMonitoring = false;
         }
 
         // 音频加载检查
@@ -180,7 +325,7 @@
             let allLoaded = true;
             
             audios.forEach((audio, index) => {
-                if (audio.readyState === 0) { // 0 = HAVE_NOTHING
+                if (audio.readyState === 0) {
                     allLoaded = false;
                     console.warn(`音频${index+1}可能未正确加载`);
                 }
