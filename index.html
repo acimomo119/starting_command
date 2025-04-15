@@ -45,7 +45,6 @@
             border-radius: 5px;
             background-color: #ecf0f1;
             min-height: 60px;
-            order: -1; /* 移到按钮上方 */
         }
         #cameraContainer {
             margin-bottom: 15px;
@@ -127,7 +126,7 @@
             margin-top: 5px;
         }
         input[type="range"] {
-            width: 100%;
+            width: 80%; /* 修改为80%宽度 */
         }
         input[type="checkbox"] {
             margin-right: 10px;
@@ -139,8 +138,6 @@
     </style>
 </head>
 <body>
-    <div id="status" class="status">准备就绪</div>
-    
     <div id="cameraContainer">
         <div class="timer-display" id="countdown">0.00秒</div>
         <div class="motion-display" id="motionStatus">等待启动...</div>
@@ -150,6 +147,8 @@
         <canvas id="canvas"></canvas>
     </div>
 
+    <div id="status" class="status">准备就绪</div>
+    
     <div class="btn-container">
         <button id="readyBtn" class="btn">就位</button>
         <button id="setBtn" class="btn">预备</button>
@@ -199,6 +198,12 @@
             <label>计时手工延时: <input type="number" id="manualDelay" min="0" max="5" step="0.1" value="1.0"> 秒</label>
             <div class="setting-hint">当蓝牙校准禁用时生效，用于手动补偿延迟</div>
         </div>
+        
+        <!-- 新增计时校准设置 -->
+        <div class="setting-item">
+            <label>计时校准延时: <input type="number" id="timerCalibration" min="0" max="1" step="0.05" value="0.4"> 秒</label>
+            <div class="setting-hint">播放出发指令后延迟多少秒开始计时</div>
+        </div>
     </div>
 
     <audio id="audio1" src="1.mp3" preload="auto"></audio>
@@ -232,6 +237,7 @@
         const bluetoothCorrection = document.getElementById('bluetoothCorrection');
         const manualDelayContainer = document.getElementById('manualDelayContainer');
         const manualDelay = document.getElementById('manualDelay');
+        const timerCalibration = document.getElementById('timerCalibration');
         const beepAudio = document.getElementById('beepAudio');
 
         const audio1 = document.getElementById('audio1');
@@ -276,24 +282,6 @@
             thresholdValue.textContent = currentThreshold;
         }
 
-        // 替代语音播报方案：蜂鸣音+屏幕闪烁
-        function announceTime(elapsed) {
-            // 方案1：播放蜂鸣音
-            beepAudio.currentTime = 0;
-            beepAudio.play().catch(e => console.log('蜂鸣音播放失败:', e));
-            
-            // 方案2：屏幕闪烁
-            countdownDiv.style.color = '#ff0000';
-            setTimeout(() => {
-                countdownDiv.style.color = '#ffffff';
-            }, 200);
-            
-            // 方案3：转换为分钟格式显示
-            const minutes = Math.floor(elapsed / 60);
-            const seconds = (elapsed % 60).toFixed(2);
-            countdownDiv.textContent = `${minutes}分${seconds}秒`;
-        }
-
         // 单个音频播放函数
         function playAudio(audioElement, message) {
             audioElement.pause();
@@ -310,7 +298,11 @@
                     .then(() => {
                         statusDiv.textContent = message;
                         if (audioElement === audio3) {
-                            startTimerAndDetection();
+                            // 增加计时校准延迟
+                            const calibrationDelay = parseFloat(timerCalibration.value) * 1000;
+                            setTimeout(() => {
+                                startTimerAndDetection();
+                            }, calibrationDelay);
                         }
                     })
                     .catch(error => {
@@ -451,9 +443,6 @@
             statusDiv.textContent = `计时结束! 最终时间: ${elapsed.toFixed(2)}秒`;
             motionStatus.textContent = "计时已停止";
             isMonitoring = false;
-            
-            // 播报时长（替代语音方案）
-            announceTime(elapsed);
         }
     </script>
 </body>
