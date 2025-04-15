@@ -119,6 +119,7 @@
         }
         .setting-item {
             margin-bottom: 10px;
+            text-align: center;
         }
         .setting-hint {
             font-size: 12px;
@@ -126,7 +127,9 @@
             margin-top: 5px;
         }
         input[type="range"] {
-            width: 80%; /* 修改为80%宽度 */
+            width: 70%;
+            margin: 0 auto;
+            display: block;
         }
         input[type="checkbox"] {
             margin-right: 10px;
@@ -139,7 +142,7 @@
 </head>
 <body>
     <div id="cameraContainer">
-        <div class="timer-display" id="countdown">0.00秒</div>
+        <div class="timer-display" id="countdown">0.000秒</div>
         <div class="motion-display" id="motionStatus">等待启动...</div>
         <div id="centerLine"></div>
         <div id="detectionArea"></div>
@@ -170,21 +173,21 @@
 
     <div class="setting-group">
         <div class="setting-item">
-            <label>就位→预备间隔: <span id="delay1MinValue">2.5</span>-<span id="delay1MaxValue">3.0</span>秒</label>
-            <div>
-                最短: <input type="range" id="delay1Min" min="1" max="5" step="0.1" value="2.5">
-                最长: <input type="range" id="delay1Max" min="1" max="5" step="0.1" value="3.0">
-            </div>
-            <div class="setting-hint">设置第一次指令间隔时间范围</div>
+            <label>就位→预备间隔: <span id="delay1Value">2.5</span>秒</label>
+            <input type="range" id="delay1" min="1" max="5" step="0.1" value="2.5">
+            <div class="setting-hint">设置第一次指令间隔时间</div>
         </div>
         
         <div class="setting-item">
-            <label>预备→出发间隔: <span id="delay2MinValue">2.8</span>-<span id="delay2MaxValue">4.0</span>秒</label>
-            <div>
-                最短: <input type="range" id="delay2Min" min="1" max="6" step="0.1" value="2.8">
-                最长: <input type="range" id="delay2Max" min="1" max="6" step="0.1" value="4.0">
-            </div>
-            <div class="setting-hint">设置第二次指令间隔时间范围</div>
+            <label>预备→出发间隔: <span id="delay2Value">3.0</span>秒</label>
+            <input type="range" id="delay2" min="1" max="6" step="0.1" value="3.0">
+            <div class="setting-hint">设置第二次指令间隔时间</div>
+        </div>
+
+        <div class="setting-item">
+            <label>自动开始前延时: <span id="initialDelayValue">0.5</span>秒</label>
+            <input type="range" id="initialDelay" min="0.1" max="2" step="0.1" value="0.5">
+            <div class="setting-hint">自动模式开始前的等待时间</div>
         </div>
     </div>
 
@@ -199,7 +202,6 @@
             <div class="setting-hint">当蓝牙校准禁用时生效，用于手动补偿延迟</div>
         </div>
         
-        <!-- 新增计时校准设置 -->
         <div class="setting-item">
             <label>计时校准延时: <input type="number" id="timerCalibration" min="0" max="1" step="0.05" value="0.4"> 秒</label>
             <div class="setting-hint">播放出发指令后延迟多少秒开始计时</div>
@@ -209,7 +211,6 @@
     <audio id="audio1" src="1.mp3" preload="auto"></audio>
     <audio id="audio2" src="2.mp3" preload="auto"></audio>
     <audio id="audio3" src="3.mp3" preload="auto"></audio>
-    <audio id="beepAudio" src="data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV" preload="auto"></audio>
 
     <script>
         // 获取DOM元素
@@ -226,19 +227,16 @@
         const motionStatus = document.getElementById('motionStatus');
         const thresholdSlider = document.getElementById('thresholdSlider');
         const thresholdValue = document.getElementById('thresholdValue');
-        const delay1Min = document.getElementById('delay1Min');
-        const delay1Max = document.getElementById('delay1Max');
-        const delay1MinValue = document.getElementById('delay1MinValue');
-        const delay1MaxValue = document.getElementById('delay1MaxValue');
-        const delay2Min = document.getElementById('delay2Min');
-        const delay2Max = document.getElementById('delay2Max');
-        const delay2MinValue = document.getElementById('delay2MinValue');
-        const delay2MaxValue = document.getElementById('delay2MaxValue');
+        const delay1 = document.getElementById('delay1');
+        const delay1Value = document.getElementById('delay1Value');
+        const delay2 = document.getElementById('delay2');
+        const delay2Value = document.getElementById('delay2Value');
+        const initialDelay = document.getElementById('initialDelay');
+        const initialDelayValue = document.getElementById('initialDelayValue');
         const bluetoothCorrection = document.getElementById('bluetoothCorrection');
         const manualDelayContainer = document.getElementById('manualDelayContainer');
         const manualDelay = document.getElementById('manualDelay');
         const timerCalibration = document.getElementById('timerCalibration');
-        const beepAudio = document.getElementById('beepAudio');
 
         const audio1 = document.getElementById('audio1');
         const audio2 = document.getElementById('audio2');
@@ -258,14 +256,12 @@
             audio1.load();
             audio2.load();
             audio3.load();
-            beepAudio.load();
             
             // 设置滑块事件
             thresholdSlider.addEventListener('input', updateThreshold);
-            delay1Min.addEventListener('input', () => delay1MinValue.textContent = delay1Min.value);
-            delay1Max.addEventListener('input', () => delay1MaxValue.textContent = delay1Max.value);
-            delay2Min.addEventListener('input', () => delay2MinValue.textContent = delay2Min.value);
-            delay2Max.addEventListener('input', () => delay2MaxValue.textContent = delay2Max.value);
+            delay1.addEventListener('input', () => delay1Value.textContent = delay1.value);
+            delay2.addEventListener('input', () => delay2Value.textContent = delay2.value);
+            initialDelay.addEventListener('input', () => initialDelayValue.textContent = initialDelay.value);
             
             // 蓝牙校准切换
             bluetoothCorrection.addEventListener('change', function() {
@@ -329,16 +325,14 @@
         autoBtn.addEventListener('click', () => {
             statusDiv.textContent = "自动播放序列开始...";
             
-            const initialDelay = 200 + Math.random() * 300; // 0.2-0.5秒
-            const delay1 = parseFloat(delay1Min.value) * 1000 + 
-                         Math.random() * (parseFloat(delay1Max.value) - parseFloat(delay1Min.value)) * 1000;
-            const delay2 = parseFloat(delay2Min.value) * 1000 + 
-                         Math.random() * (parseFloat(delay2Max.value) - parseFloat(delay2Min.value)) * 1000;
+            const initialDelayTime = parseFloat(initialDelay.value) * 1000;
+            const delay1Time = parseFloat(delay1.value) * 1000;
+            const delay2Time = parseFloat(delay2.value) * 1000;
             
             statusDiv.innerHTML = `自动播放中:<br>
-                                 初始延迟: ${(initialDelay/1000).toFixed(1)}秒<br>
-                                 就位 → 预备: ${(delay1/1000).toFixed(1)}秒<br>
-                                 预备 → 出发: ${(delay2/1000).toFixed(1)}秒`;
+                                 初始延迟: ${initialDelay.value}秒<br>
+                                 就位 → 预备: ${delay1.value}秒<br>
+                                 预备 → 出发: ${delay2.value}秒`;
             
             setTimeout(() => {
                 playAudio(audio1, "播放: 就位");
@@ -349,9 +343,9 @@
                     setTimeout(() => {
                         playAudio(audio3, "播放: 出发");
                         statusDiv.textContent = "自动播放序列完成";
-                    }, delay2);
-                }, delay1);
-            }, initialDelay);
+                    }, delay2Time);
+                }, delay1Time);
+            }, initialDelayTime);
         });
 
         // 开始计时和运动检测
@@ -366,7 +360,7 @@
             if (timerInterval) clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 const elapsed = (Date.now() - startTime) / 1000;
-                countdownDiv.textContent = elapsed.toFixed(2) + "秒";
+                countdownDiv.textContent = elapsed.toFixed(3) + "秒";
             }, 10);
             
             // 启动运动检测
@@ -440,7 +434,7 @@
             if (motionDetectionInterval) clearInterval(motionDetectionInterval);
             
             const elapsed = (Date.now() - startTime) / 1000;
-            statusDiv.textContent = `计时结束! 最终时间: ${elapsed.toFixed(2)}秒`;
+            statusDiv.textContent = `计时结束! 最终时间: ${elapsed.toFixed(3)}秒`;
             motionStatus.textContent = "计时已停止";
             isMonitoring = false;
         }
