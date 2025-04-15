@@ -137,6 +137,32 @@
         
         <div class="setting-item">
             <div class="slider-container">
+                <label>就位→预备间隔</label>
+                <input type="range" id="delay1Min" min="1500" max="4000" step="100" value="2500">
+                <input type="range" id="delay1Max" min="1500" max="4000" step="100" value="3000">
+                <div class="value-display">
+                    <span id="delay1MinValue">2.5s</span>
+                    <span>至</span>
+                    <span id="delay1MaxValue">3.0s</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-item">
+            <div class="slider-container">
+                <label>预备→出发间隔</label>
+                <input type="range" id="delay2Min" min="2000" max="5000" step="100" value="2800">
+                <input type="range" id="delay2Max" min="2000" max="5000" step="100" value="4000">
+                <div class="value-display">
+                    <span id="delay2MinValue">2.8s</span>
+                    <span>至</span>
+                    <span id="delay2MaxValue">4.0s</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-item">
+            <div class="slider-container">
                 <label>出发计时校准</label>
                 <input type="range" id="startDelaySlider" min="0" max="1000" step="50" value="400">
                 <div class="value-display">
@@ -144,57 +170,128 @@
                     <span id="startDelayValue">400ms</span>
                     <span>1000ms</span>
                 </div>
-                <div class="setting-hint">出发音频播放后延迟多少开始计时</div>
             </div>
+        </div>
+        
+        <div class="setting-item">
+            <label><input type="checkbox" id="bluetoothCorrection" checked> 自动校准蓝牙延时</label>
+            <div class="setting-hint">禁用时可手动设置下方延时</div>
+        </div>
+        
+        <div class="setting-item" id="manualDelayContainer">
+            <label>手工延时补偿: <input type="number" id="manualDelay" min="0" max="5" step="0.1" value="1.0"> 秒</label>
         </div>
     </div>
 
+    <!-- 预载所有音频文件 -->
     <audio id="audio1" src="1.mp3" preload="auto"></audio>
     <audio id="audio2" src="2.mp3" preload="auto"></audio>
     <audio id="audio3" src="3.mp3" preload="auto"></audio>
+    
+    <!-- 数字音频文件 -->
+    <audio id="num0" src="num0.mp3" preload="auto"></audio>
+    <audio id="num1" src="num1.mp3" preload="auto"></audio>
+    <audio id="num2" src="num2.mp3" preload="auto"></audio>
+    <audio id="num3" src="num3.mp3" preload="auto"></audio>
+    <audio id="num4" src="num4.mp3" preload="auto"></audio>
+    <audio id="num5" src="num5.mp3" preload="auto"></audio>
+    <audio id="num6" src="num6.mp3" preload="auto"></audio>
+    <audio id="num7" src="num7.mp3" preload="auto"></audio>
+    <audio id="num8" src="num8.mp3" preload="auto"></audio>
+    <audio id="num9" src="num9.mp3" preload="auto"></audio>
+    <audio id="unit-ten" src="ten.mp3" preload="auto"></audio>
+    <audio id="unit-hundred" src="hundred.mp3" preload="auto"></audio>
+    <audio id="unit-minute" src="min.mp3" preload="auto"></audio>
+    <audio id="unit-second" src="sec.mp3" preload="auto"></audio>
+    <audio id="unit-point" src="point.mp3" preload="auto"></audio>
 
     <script>
-        // 配置常量（请替换为您自己的百度API密钥）
-        const BAIDU_TTS_CONFIG = {
-            // API KEY
-            API_KEY: '',
-            // secret key
-            SECRET_KEY: '',
-            TOKEN_URL: 'https://openapi.baidu.com/oauth/2.0/token',
-            TTS_URL: 'http://tsn.baidu.com/text2audio'
-        };
-
         // 主应用类
         class SpeedPoleApp {
             constructor() {
+                // 默认设置
+                this.defaultSettings = {
+                    threshold: 12,
+                    delay1Min: 2500,
+                    delay1Max: 3000,
+                    delay2Min: 2800,
+                    delay2Max: 4000,
+                    startDelay: 400,
+                    bluetoothCorrection: true,
+                    manualDelay: 1.0
+                };
+
+                this.initElements();
+                this.initState();
+                this.init();
+            }
+
+            initElements() {
                 this.elements = {
+                    // 按钮
                     readyBtn: document.getElementById('readyBtn'),
                     setBtn: document.getElementById('setBtn'),
                     goBtn: document.getElementById('goBtn'),
                     autoBtn: document.getElementById('autoBtn'),
+                    
+                    // 显示
                     status: document.getElementById('status'),
                     countdown: document.getElementById('countdown'),
                     video: document.getElementById('video'),
+                    
+                    // 设置滑块
                     thresholdSlider: document.getElementById('thresholdSlider'),
                     thresholdValue: document.getElementById('thresholdValue'),
+                    delay1Min: document.getElementById('delay1Min'),
+                    delay1Max: document.getElementById('delay1Max'),
+                    delay1MinValue: document.getElementById('delay1MinValue'),
+                    delay1MaxValue: document.getElementById('delay1MaxValue'),
+                    delay2Min: document.getElementById('delay2Min'),
+                    delay2Max: document.getElementById('delay2Max'),
+                    delay2MinValue: document.getElementById('delay2MinValue'),
+                    delay2MaxValue: document.getElementById('delay2MaxValue'),
                     startDelaySlider: document.getElementById('startDelaySlider'),
                     startDelayValue: document.getElementById('startDelayValue'),
+                    bluetoothCorrection: document.getElementById('bluetoothCorrection'),
+                    manualDelayContainer: document.getElementById('manualDelayContainer'),
+                    manualDelay: document.getElementById('manualDelay'),
+                    
+                    // 音频
                     audio1: document.getElementById('audio1'),
                     audio2: document.getElementById('audio2'),
-                    audio3: document.getElementById('audio3')
+                    audio3: document.getElementById('audio3'),
+                    
+                    // 数字音频
+                    numAudios: [
+                        document.getElementById('num0'),
+                        document.getElementById('num1'),
+                        document.getElementById('num2'),
+                        document.getElementById('num3'),
+                        document.getElementById('num4'),
+                        document.getElementById('num5'),
+                        document.getElementById('num6'),
+                        document.getElementById('num7'),
+                        document.getElementById('num8'),
+                        document.getElementById('num9')
+                    ],
+                    unitAudios: {
+                        ten: document.getElementById('unit-ten'),
+                        hundred: document.getElementById('unit-hundred'),
+                        min: document.getElementById('unit-minute'),
+                        sec: document.getElementById('unit-second'),
+                        point: document.getElementById('unit-point')
+                    }
                 };
+            }
 
+            initState() {
                 this.state = {
                     isMonitoring: false,
                     startTime: 0,
-                    currentThreshold: 12,
-                    startDelay: 400,
-                    audioCtx: null,
-                    baiduToken: null,
-                    tokenExpire: 0
+                    timerInterval: null,
+                    motionDetectionInterval: null,
+                    currentAudio: null
                 };
-
-                this.init();
             }
 
             init() {
@@ -204,37 +301,107 @@
                 this.startCamera();
             }
 
-            // 本地存储管理
+            // 本地设置管理
             loadSettings() {
                 const saved = localStorage.getItem('speedPoleSettings');
-                if (saved) {
-                    const settings = JSON.parse(saved);
-                    this.elements.thresholdSlider.value = settings.threshold || 12;
-                    this.elements.startDelaySlider.value = settings.startDelay || 400;
-                    this.state.currentThreshold = settings.threshold || 12;
-                    this.state.startDelay = settings.startDelay || 400;
-                    this.updateUI();
+                const settings = saved ? JSON.parse(saved) : {...this.defaultSettings};
+                
+                // 应用设置到UI
+                this.elements.thresholdSlider.value = settings.threshold;
+                this.elements.delay1Min.value = settings.delay1Min;
+                this.elements.delay1Max.value = settings.delay1Max;
+                this.elements.delay2Min.value = settings.delay2Min;
+                this.elements.delay2Max.value = settings.delay2Max;
+                this.elements.startDelaySlider.value = settings.startDelay;
+                this.elements.bluetoothCorrection.checked = settings.bluetoothCorrection;
+                this.elements.manualDelay.value = settings.manualDelay;
+                
+                // 更新状态
+                this.state.currentThreshold = settings.threshold;
+                this.state.delay1Min = settings.delay1Min;
+                this.state.delay1Max = settings.delay1Max;
+                this.state.delay2Min = settings.delay2Min;
+                this.state.delay2Max = settings.delay2Max;
+                this.state.startDelay = settings.startDelay;
+                this.state.bluetoothCorrection = settings.bluetoothCorrection;
+                this.state.manualDelay = settings.manualDelay;
+                
+                // 更新UI显示
+                this.updateUI();
+                
+                // 如果是首次运行，保存默认设置
+                if (!saved) {
+                    this.saveSettings();
                 }
             }
 
             saveSettings() {
                 const settings = {
                     threshold: this.state.currentThreshold,
-                    startDelay: this.state.startDelay
+                    delay1Min: this.state.delay1Min,
+                    delay1Max: this.state.delay1Max,
+                    delay2Min: this.state.delay2Min,
+                    delay2Max: this.state.delay2Max,
+                    startDelay: this.state.startDelay,
+                    bluetoothCorrection: this.state.bluetoothCorrection,
+                    manualDelay: this.state.manualDelay
                 };
                 localStorage.setItem('speedPoleSettings', JSON.stringify(settings));
             }
 
+            updateUI() {
+                // 更新滑块值显示
+                this.elements.thresholdValue.textContent = this.state.currentThreshold;
+                
+                this.elements.delay1MinValue.textContent = (this.state.delay1Min/1000).toFixed(1) + 's';
+                this.elements.delay1MaxValue.textContent = (this.state.delay1Max/1000).toFixed(1) + 's';
+                
+                this.elements.delay2MinValue.textContent = (this.state.delay2Min/1000).toFixed(1) + 's';
+                this.elements.delay2MaxValue.textContent = (this.state.delay2Max/1000).toFixed(1) + 's';
+                
+                this.elements.startDelayValue.textContent = this.state.startDelay + 'ms';
+                
+                // 蓝牙校准与手工延时的联动
+                this.elements.manualDelayContainer.style.display = 
+                    this.state.bluetoothCorrection ? 'none' : 'block';
+            }
+
             // 事件监听
             setupEventListeners() {
-                this.elements.readyBtn.addEventListener('click', () => this.playAudio(this.elements.audio1, "就位"));
-                this.elements.setBtn.addEventListener('click', () => this.playAudio(this.elements.audio2, "预备"));
-                this.elements.goBtn.addEventListener('click', () => this.playAudio(this.elements.audio3, "出发"));
+                // 按钮事件
+                this.elements.readyBtn.addEventListener('click', () => this.playCommand(1));
+                this.elements.setBtn.addEventListener('click', () => this.playCommand(2));
+                this.elements.goBtn.addEventListener('click', () => this.playCommand(3));
                 this.elements.autoBtn.addEventListener('click', () => this.startAutoSequence());
                 
+                // 设置滑块事件
                 this.elements.thresholdSlider.addEventListener('input', () => {
                     this.state.currentThreshold = parseInt(this.elements.thresholdSlider.value);
                     this.elements.thresholdValue.textContent = this.state.currentThreshold;
+                    this.saveSettings();
+                });
+                
+                this.elements.delay1Min.addEventListener('input', () => {
+                    this.state.delay1Min = parseInt(this.elements.delay1Min.value);
+                    this.elements.delay1MinValue.textContent = (this.state.delay1Min/1000).toFixed(1) + 's';
+                    this.saveSettings();
+                });
+                
+                this.elements.delay1Max.addEventListener('input', () => {
+                    this.state.delay1Max = parseInt(this.elements.delay1Max.value);
+                    this.elements.delay1MaxValue.textContent = (this.state.delay1Max/1000).toFixed(1) + 's';
+                    this.saveSettings();
+                });
+                
+                this.elements.delay2Min.addEventListener('input', () => {
+                    this.state.delay2Min = parseInt(this.elements.delay2Min.value);
+                    this.elements.delay2MinValue.textContent = (this.state.delay2Min/1000).toFixed(1) + 's';
+                    this.saveSettings();
+                });
+                
+                this.elements.delay2Max.addEventListener('input', () => {
+                    this.state.delay2Max = parseInt(this.elements.delay2Max.value);
+                    this.elements.delay2MaxValue.textContent = (this.state.delay2Max/1000).toFixed(1) + 's';
                     this.saveSettings();
                 });
                 
@@ -243,33 +410,67 @@
                     this.elements.startDelayValue.textContent = this.state.startDelay + 'ms';
                     this.saveSettings();
                 });
+                
+                this.elements.bluetoothCorrection.addEventListener('change', () => {
+                    this.state.bluetoothCorrection = this.elements.bluetoothCorrection.checked;
+                    this.elements.manualDelayContainer.style.display = 
+                        this.state.bluetoothCorrection ? 'none' : 'block';
+                    this.saveSettings();
+                });
+                
+                this.elements.manualDelay.addEventListener('change', () => {
+                    this.state.manualDelay = parseFloat(this.elements.manualDelay.value);
+                    this.saveSettings();
+                });
             }
 
             // 音频预载
             preloadAudios() {
-                const audios = [this.elements.audio1, this.elements.audio2, this.elements.audio3];
+                const allAudios = [
+                    this.elements.audio1, this.elements.audio2, this.elements.audio3,
+                    ...this.elements.numAudios,
+                    ...Object.values(this.elements.unitAudios)
+                ];
+                
                 let loadedCount = 0;
+                const total = allAudios.length;
                 
                 const checkLoaded = () => {
-                    if (++loadedCount === audios.length) {
-                        this.elements.status.textContent = "系统就绪";
+                    if (++loadedCount === total) {
+                        this.elements.status.textContent = "系统就绪 (音频预载完成)";
                     }
                 };
                 
-                audios.forEach(audio => {
+                allAudios.forEach(audio => {
                     audio.addEventListener('canplaythrough', checkLoaded);
                     audio.load();
                 });
             }
 
-            // 音频播放
-            playAudio(audio, message) {
+            // 播放指令音频
+            playCommand(type) {
+                const audio = this.elements[`audio${type}`];
+                const messages = ["", "就位", "预备", "出发"];
+                
+                // 停止当前播放
+                if (this.state.currentAudio) {
+                    this.state.currentAudio.pause();
+                    this.state.currentAudio.currentTime = 0;
+                }
+                
                 audio.currentTime = 0;
                 audio.play()
                     .then(() => {
-                        this.elements.status.textContent = `播放: ${message}`;
-                        if (audio === this.elements.audio3) {
-                            setTimeout(() => this.startTimerAndDetection(), this.state.startDelay);
+                        this.state.currentAudio = audio;
+                        this.elements.status.textContent = `播放: ${messages[type]}`;
+                        
+                        // 如果是出发指令，开始计时
+                        if (type === 3) {
+                            const delay = this.state.bluetoothCorrection ? 
+                                this.state.startDelay : 
+                                this.state.manualDelay * 1000;
+                            
+                            setTimeout(() => this.startTimerAndDetection(), delay);
                         }
                     })
                     .catch(e => {
@@ -278,20 +479,20 @@
                     });
             }
 
-            // 自动序列
+            // 自动播放序列
             startAutoSequence() {
                 this.elements.status.textContent = "自动播放开始...";
                 
-                const initialDelay = 200 + Math.random() * 300;
-                const delay1 = 2500 + Math.random() * 500;
-                const delay2 = 2800 + Math.random() * 1200;
+                const initialDelay = 200 + Math.random() * 300; // 0.2-0.5秒
+                const delay1 = this.state.delay1Min + Math.random() * (this.state.delay1Max - this.state.delay1Min);
+                const delay2 = this.state.delay2Min + Math.random() * (this.state.delay2Max - this.state.delay2Min);
                 
                 setTimeout(() => {
-                    this.playAudio(this.elements.audio1, "就位");
+                    this.playCommand(1);
                     setTimeout(() => {
-                        this.playAudio(this.elements.audio2, "预备");
+                        this.playCommand(2);
                         setTimeout(() => {
-                            this.playAudio(this.elements.audio3, "出发");
+                            this.playCommand(3);
                         }, delay2);
                     }, delay1);
                 }, initialDelay);
@@ -303,12 +504,14 @@
                 this.state.isMonitoring = true;
                 this.elements.status.textContent = "计时中...";
                 
-                this.timerInterval = setInterval(() => {
+                // 计时器
+                this.state.timerInterval = setInterval(() => {
                     const elapsed = (Date.now() - this.state.startTime) / 1000;
-                    this.elements.countdown.textContent = elapsed.toFixed(2) + "秒";
+                    this.elements.countdown.textContent = elapsed.toFixed(3) + "秒";
                 }, 10);
                 
-                this.motionDetectionInterval = setInterval(() => this.checkMotion(), 200);
+                // 运动检测
+                this.state.motionDetectionInterval = setInterval(() => this.checkMotion(), 200);
             }
 
             checkMotion() {
@@ -328,107 +531,77 @@
             }
 
             stopTimer() {
-                clearInterval(this.timerInterval);
-                clearInterval(this.motionDetectionInterval);
+                clearInterval(this.state.timerInterval);
+                clearInterval(this.state.motionDetectionInterval);
                 this.state.isMonitoring = false;
             }
 
-            // 语音播报系统
-            announceTime(seconds) {
+            // 数字音频播报系统
+            async announceTime(seconds) {
                 const timeStr = this.formatTime(seconds);
+                this.elements.status.textContent = `计时结束: ${timeStr}`;
                 
-                // 优先尝试Web Audio API
-                if (this.tryWebAudioTTS(timeStr)) return;
+                // 将时间字符串转换为音频序列
+                const audioSequence = this.timeToAudioSequence(timeStr);
                 
-                // 回退到百度TTS
-                this.tryBaiduTTS(timeStr);
-            }
-
-            // Web Audio语音合成
-            tryWebAudioTTS(text) {
-                try {
-                    if (!this.state.audioCtx) {
-                        this.state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                // 顺序播放音频
+                for (const audio of audioSequence) {
+                    try {
+                        await this.playAudio(audio);
+                    } catch (e) {
+                        console.error('音频播放失败:', e);
+                        break;
                     }
-                    
-                    const oscillator = this.state.audioCtx.createOscillator();
-                    const gain = this.state.audioCtx.createGain();
-                    oscillator.connect(gain);
-                    gain.connect(this.state.audioCtx.destination);
-                    
-                    // 数字音调映射
-                    const toneMap = {
-                        '0': 196, '1': 220, '2': 246, '3': 261, '4': 293,
-                        '5': 329, '6': 349, '7': 392, '8': 440, '9': 493,
-                        '分': 587, '秒': 698, '.': 784
-                    };
-                    
-                    let time = 0;
-                    text.split('').forEach(char => {
-                        const freq = toneMap[char] || 440;
-                        oscillator.frequency.setValueAtTime(freq, this.state.audioCtx.currentTime + time);
-                        gain.gain.setValueAtTime(1, this.state.audioCtx.currentTime + time);
-                        time += 0.3;
-                        gain.gain.setValueAtTime(0, this.state.audioCtx.currentTime + time - 0.05);
-                    });
-                    
-                    oscillator.start();
-                    setTimeout(() => oscillator.stop(), time * 1000);
-                    return true;
-                } catch (e) {
-                    console.log('Web Audio合成失败:', e);
-                    return false;
                 }
             }
 
-            // 百度TTS语音合成
-            async tryBaiduTTS(text) {
-                try {
-                    if (!this.state.baiduToken || Date.now() > this.state.tokenExpire) {
-                        await this.getBaiduToken();
-                    }
-                    
-                    const url = `${BAIDU_TTS_CONFIG.TTS_URL}?tex=${encodeURIComponent(text)}&tok=${this.state.baiduToken}&cuid=123&ctp=1&lan=zh`;
-                    const audio = new Audio(url);
-                    audio.play().catch(e => console.log('百度TTS播放失败:', e));
-                } catch (e) {
-                    console.log('百度TTS请求失败:', e);
-                }
-            }
-
-            // 获取百度Token
-            async getBaiduToken() {
-                const params = new URLSearchParams();
-                params.append('grant_type', 'client_credentials');
-                params.append('client_id', BAIDU_TTS_CONFIG.API_KEY);
-                params.append('client_secret', BAIDU_TTS_CONFIG.SECRET_KEY);
-                
-                try {
-                    const response = await fetch(`${BAIDU_TTS_CONFIG.TOKEN_URL}?${params.toString()}`);
-                    const data = await response.json();
-                    
-                    if (data.access_token) {
-                        this.state.baiduToken = data.access_token;
-                        this.state.tokenExpire = Date.now() + (data.expires_in - 60) * 1000;
-                    }
-                } catch (e) {
-                    console.error('获取百度Token失败:', e);
-                }
-            }
-
-            // 辅助方法
+            // 格式化时间为发音字符串
             formatTime(seconds) {
                 const mins = Math.floor(seconds / 60);
-                const secs = (seconds % 60).toFixed(2);
-                return `${mins > 0 ? mins + '分' : ''}${secs}秒`;
+                const secs = (seconds % 60).toFixed(3);
+                
+                if (mins > 0) {
+                    return `${mins}分${secs}秒`;
+                } else {
+                    return `${secs}秒`;
+                }
             }
 
-            updateUI() {
-                this.elements.thresholdValue.textContent = this.state.currentThreshold;
-                this.elements.startDelayValue.textContent = this.state.startDelay + 'ms';
+            // 将时间字符串转换为音频对象数组
+            timeToAudioSequence(timeStr) {
+                const sequence = [];
+                
+                // 示例: "1分43.432秒" -> ["num1", "unit-min", "num4", "num3", "unit-point", "num4", "num3", "num2", "unit-sec"]
+                for (let i = 0; i < timeStr.length; i++) {
+                    const char = timeStr[i];
+                    
+                    if (char >= '0' && char <= '9') {
+                        sequence.push(this.elements.numAudios[parseInt(char)]);
+                    } else if (char === '分') {
+                        sequence.push(this.elements.unitAudios.min);
+                    } else if (char === '.') {
+                        sequence.push(this.elements.unitAudios.point);
+                    } else if (char === '秒') {
+                        sequence.push(this.elements.unitAudios.sec);
+                    }
+                }
+                
+                return sequence;
             }
 
-            // 摄像头
+            // 播放单个音频(返回Promise)
+            playAudio(audio) {
+                return new Promise((resolve, reject) => {
+                    audio.currentTime = 0;
+                    audio.play()
+                        .then(() => {
+                            audio.onended = resolve;
+                        })
+                        .catch(reject);
+                });
+            }
+
+            // 启动摄像头
             async startCamera() {
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ 
