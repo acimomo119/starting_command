@@ -208,6 +208,19 @@
             startCamera();
         });
 
+        // 语音播报函数
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance();
+                utterance.text = text;
+                utterance.lang = 'zh-CN';
+                utterance.rate = 0.9;
+                speechSynthesis.speak(utterance);
+            } else {
+                console.log('浏览器不支持语音合成');
+            }
+        }
+
         // 更新阈值显示
         thresholdSlider.addEventListener('input', (e) => {
             currentThreshold = parseInt(e.target.value);
@@ -360,15 +373,20 @@
             return diff / (pixelCount * 3); // 平均差异
         }
 
-        // 停止计时
+        // 停止计时（增加语音播报）
         function stopTimer() {
             if (timerInterval) clearInterval(timerInterval);
             if (motionDetectionInterval) clearInterval(motionDetectionInterval);
             
             const elapsed = (Date.now() - startTime) / 1000;
+            const elapsedText = `计时结束，最终时间 ${elapsed.toFixed(2)}秒`;
+            
             statusDiv.textContent = `计时结束! 最终时间: ${elapsed.toFixed(2)}秒`;
             motionStatus.textContent = "计时已停止";
             isMonitoring = false;
+            
+            // 语音播报计时结果
+            speak(elapsedText);
         }
     </script>
 </body>
