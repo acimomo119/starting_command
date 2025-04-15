@@ -9,7 +9,7 @@
             font-family: 'Arial', sans-serif;
             max-width: 500px;
             margin: 0 auto;
-            padding: 15px;
+            padding: 20px;
             background-color: #f5f5f5;
         }
         .btn-container {
@@ -19,35 +19,46 @@
             margin: 10px 0;
         }
         .btn {
-            padding: 12px;
-            font-size: 16px;
+            padding: 15px;
+            font-size: 18px;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            transition: background-color 0.3s;
         }
-        #readyBtn { background-color: #3498db; }
-        #setBtn { background-color: #e67e22; }
-        #goBtn { background-color: #2ecc71; }
-        #autoBtn { background-color: #9b59b6; }
-        
+        #readyBtn {
+            background-color: #3498db;
+        }
+        #setBtn {
+            background-color: #e67e22;
+        }
+        #goBtn {
+            background-color: #2ecc71;
+        }
+        #autoBtn {
+            background-color: #9b59b6;
+        }
         #status {
-            margin: 10px 0;
-            padding: 12px;
-            background-color: #ecf0f1;
+            margin: 15px 0;
+            padding: 15px;
             border-radius: 5px;
-            order: 1;
+            background-color: #ecf0f1;
+            min-height: 60px;
+            order: -1; /* 移到按钮上方 */
         }
-        
         #cameraContainer {
+            margin-bottom: 15px;
             width: 100%;
             position: relative;
-            margin-bottom: 10px;
         }
         #video {
             width: 100%;
             background: #000;
             border-radius: 5px;
+        }
+        #canvas {
+            display: none;
         }
         #centerLine {
             position: absolute;
@@ -57,6 +68,21 @@
             width: 2px;
             background-color: red;
             transform: translateX(-1px);
+            z-index: 10;
+        }
+        #detectionArea {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 30%;
+            right: 30%;
+            border: 2px dashed rgba(0, 255, 0, 0.5);
+            z-index: 5;
+            pointer-events: none;
+        }
+        .motion-alert {
+            color: red;
+            font-weight: bold;
         }
         .timer-display {
             position: absolute;
@@ -65,51 +91,64 @@
             right: 0;
             color: white;
             font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            text-shadow: 0 0 5px black;
+            z-index: 20;
+        }
+        .motion-display {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            color: white;
+            font-size: 16px;
             text-align: center;
             text-shadow: 0 0 3px black;
+            z-index: 20;
         }
-        
         .settings-label {
             text-align: center;
-            margin: 15px 0 5px;
+            margin: 20px 0 10px;
             font-weight: bold;
         }
         .setting-group {
-            margin-bottom: 12px;
+            margin-bottom: 15px;
             padding: 10px;
             background: #fff;
             border-radius: 5px;
         }
         .setting-item {
-            margin-bottom: 8px;
-        }
-        .slider-container {
-            width: 66.66%;
-            margin: 0 auto;
-        }
-        input[type="range"] {
-            width: 100%;
-        }
-        .value-display {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 5px;
+            margin-bottom: 10px;
         }
         .setting-hint {
             font-size: 12px;
             color: #666;
-            margin-top: 3px;
+            margin-top: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        input[type="number"] {
+            width: 60px;
+            padding: 5px;
         }
     </style>
 </head>
 <body>
+    <div id="status" class="status">准备就绪</div>
+    
     <div id="cameraContainer">
         <div class="timer-display" id="countdown">0.00秒</div>
+        <div class="motion-display" id="motionStatus">等待启动...</div>
         <div id="centerLine"></div>
+        <div id="detectionArea"></div>
         <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
     </div>
-    
-    <div id="status">准备就绪</div>
 
     <div class="btn-container">
         <button id="readyBtn" class="btn">就位</button>
@@ -124,498 +163,298 @@
     
     <div class="setting-group">
         <div class="setting-item">
-            <div class="slider-container">
-                <label>摄像头敏感度</label>
-                <input type="range" id="thresholdSlider" min="5" max="50" value="12">
-                <div class="value-display">
-                    <span>敏感</span>
-                    <span id="thresholdValue">12</span>
-                    <span>迟钝</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="setting-item">
-            <div class="slider-container">
-                <label>就位→预备间隔</label>
-                <input type="range" id="delay1Min" min="1500" max="4000" step="100" value="2500">
-                <input type="range" id="delay1Max" min="1500" max="4000" step="100" value="3000">
-                <div class="value-display">
-                    <span id="delay1MinValue">2.5s</span>
-                    <span>至</span>
-                    <span id="delay1MaxValue">3.0s</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="setting-item">
-            <div class="slider-container">
-                <label>预备→出发间隔</label>
-                <input type="range" id="delay2Min" min="2000" max="5000" step="100" value="2800">
-                <input type="range" id="delay2Max" min="2000" max="5000" step="100" value="4000">
-                <div class="value-display">
-                    <span id="delay2MinValue">2.8s</span>
-                    <span>至</span>
-                    <span id="delay2MaxValue">4.0s</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="setting-item">
-            <div class="slider-container">
-                <label>出发计时校准</label>
-                <input type="range" id="startDelaySlider" min="0" max="1000" step="50" value="400">
-                <div class="value-display">
-                    <span>0ms</span>
-                    <span id="startDelayValue">400ms</span>
-                    <span>1000ms</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="setting-item">
-            <label><input type="checkbox" id="bluetoothCorrection" checked> 自动校准蓝牙延时</label>
-            <div class="setting-hint">禁用时可手动设置下方延时</div>
-        </div>
-        
-        <div class="setting-item" id="manualDelayContainer">
-            <label>手工延时补偿: <input type="number" id="manualDelay" min="0" max="5" step="0.1" value="1.0"> 秒</label>
+            <label>摄像头敏感阈值 (当前: <span id="thresholdValue">12</span>)</label>
+            <input type="range" id="thresholdSlider" min="5" max="50" value="12">
+            <div class="setting-hint">数值越小越敏感，建议范围10-30</div>
         </div>
     </div>
 
-    <!-- 预载所有音频文件 -->
+    <div class="setting-group">
+        <div class="setting-item">
+            <label>就位→预备间隔: <span id="delay1MinValue">2.5</span>-<span id="delay1MaxValue">3.0</span>秒</label>
+            <div>
+                最短: <input type="range" id="delay1Min" min="1" max="5" step="0.1" value="2.5">
+                最长: <input type="range" id="delay1Max" min="1" max="5" step="0.1" value="3.0">
+            </div>
+            <div class="setting-hint">设置第一次指令间隔时间范围</div>
+        </div>
+        
+        <div class="setting-item">
+            <label>预备→出发间隔: <span id="delay2MinValue">2.8</span>-<span id="delay2MaxValue">4.0</span>秒</label>
+            <div>
+                最短: <input type="range" id="delay2Min" min="1" max="6" step="0.1" value="2.8">
+                最长: <input type="range" id="delay2Max" min="1" max="6" step="0.1" value="4.0">
+            </div>
+            <div class="setting-hint">设置第二次指令间隔时间范围</div>
+        </div>
+    </div>
+
+    <div class="setting-group">
+        <div class="setting-item">
+            <label><input type="checkbox" id="bluetoothCorrection" checked> 自动校准蓝牙音频延时</label>
+            <div class="setting-hint">启用后会自动补偿蓝牙设备的音频延迟</div>
+        </div>
+        
+        <div class="setting-item" id="manualDelayContainer" style="display:none">
+            <label>计时手工延时: <input type="number" id="manualDelay" min="0" max="5" step="0.1" value="1.0"> 秒</label>
+            <div class="setting-hint">当蓝牙校准禁用时生效，用于手动补偿延迟</div>
+        </div>
+    </div>
+
     <audio id="audio1" src="1.mp3" preload="auto"></audio>
     <audio id="audio2" src="2.mp3" preload="auto"></audio>
     <audio id="audio3" src="3.mp3" preload="auto"></audio>
-    
-    <!-- 数字音频文件 -->
-    <audio id="num0" src="num0.mp3" preload="auto"></audio>
-    <audio id="num1" src="num1.mp3" preload="auto"></audio>
-    <audio id="num2" src="num2.mp3" preload="auto"></audio>
-    <audio id="num3" src="num3.mp3" preload="auto"></audio>
-    <audio id="num4" src="num4.mp3" preload="auto"></audio>
-    <audio id="num5" src="num5.mp3" preload="auto"></audio>
-    <audio id="num6" src="num6.mp3" preload="auto"></audio>
-    <audio id="num7" src="num7.mp3" preload="auto"></audio>
-    <audio id="num8" src="num8.mp3" preload="auto"></audio>
-    <audio id="num9" src="num9.mp3" preload="auto"></audio>
-    <audio id="unit-ten" src="ten.mp3" preload="auto"></audio>
-    <audio id="unit-hundred" src="hundred.mp3" preload="auto"></audio>
-    <audio id="unit-minute" src="min.mp3" preload="auto"></audio>
-    <audio id="unit-second" src="sec.mp3" preload="auto"></audio>
-    <audio id="unit-point" src="point.mp3" preload="auto"></audio>
+    <audio id="beepAudio" src="data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV" preload="auto"></audio>
 
     <script>
-        // 主应用类
-        class SpeedPoleApp {
-            constructor() {
-                // 默认设置
-                this.defaultSettings = {
-                    threshold: 12,
-                    delay1Min: 2500,
-                    delay1Max: 3000,
-                    delay2Min: 2800,
-                    delay2Max: 4000,
-                    startDelay: 400,
-                    bluetoothCorrection: true,
-                    manualDelay: 1.0
-                };
+        // 获取DOM元素
+        const readyBtn = document.getElementById('readyBtn');
+        const setBtn = document.getElementById('setBtn');
+        const goBtn = document.getElementById('goBtn');
+        const autoBtn = document.getElementById('autoBtn');
+        const statusDiv = document.getElementById('status');
+        const countdownDiv = document.getElementById('countdown');
+        const cameraContainer = document.getElementById('cameraContainer');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const motionStatus = document.getElementById('motionStatus');
+        const thresholdSlider = document.getElementById('thresholdSlider');
+        const thresholdValue = document.getElementById('thresholdValue');
+        const delay1Min = document.getElementById('delay1Min');
+        const delay1Max = document.getElementById('delay1Max');
+        const delay1MinValue = document.getElementById('delay1MinValue');
+        const delay1MaxValue = document.getElementById('delay1MaxValue');
+        const delay2Min = document.getElementById('delay2Min');
+        const delay2Max = document.getElementById('delay2Max');
+        const delay2MinValue = document.getElementById('delay2MinValue');
+        const delay2MaxValue = document.getElementById('delay2MaxValue');
+        const bluetoothCorrection = document.getElementById('bluetoothCorrection');
+        const manualDelayContainer = document.getElementById('manualDelayContainer');
+        const manualDelay = document.getElementById('manualDelay');
+        const beepAudio = document.getElementById('beepAudio');
 
-                this.initElements();
-                this.initState();
-                this.init();
+        const audio1 = document.getElementById('audio1');
+        const audio2 = document.getElementById('audio2');
+        const audio3 = document.getElementById('audio3');
+
+        // 运动检测相关变量
+        let isMonitoring = false;
+        let lastFrame = null;
+        let motionDetectionInterval;
+        let startTime;
+        let timerInterval;
+        let currentThreshold = 12;
+
+        // 初始化
+        window.addEventListener('load', () => {
+            // 预载音频
+            audio1.load();
+            audio2.load();
+            audio3.load();
+            beepAudio.load();
+            
+            // 设置滑块事件
+            thresholdSlider.addEventListener('input', updateThreshold);
+            delay1Min.addEventListener('input', () => delay1MinValue.textContent = delay1Min.value);
+            delay1Max.addEventListener('input', () => delay1MaxValue.textContent = delay1Max.value);
+            delay2Min.addEventListener('input', () => delay2MinValue.textContent = delay2Min.value);
+            delay2Max.addEventListener('input', () => delay2MaxValue.textContent = delay2Max.value);
+            
+            // 蓝牙校准切换
+            bluetoothCorrection.addEventListener('change', function() {
+                manualDelayContainer.style.display = this.checked ? 'none' : 'block';
+            });
+            
+            // 自动开启后置摄像头
+            startCamera();
+        });
+
+        // 更新阈值
+        function updateThreshold() {
+            currentThreshold = parseInt(thresholdSlider.value);
+            thresholdValue.textContent = currentThreshold;
+        }
+
+        // 替代语音播报方案：蜂鸣音+屏幕闪烁
+        function announceTime(elapsed) {
+            // 方案1：播放蜂鸣音
+            beepAudio.currentTime = 0;
+            beepAudio.play().catch(e => console.log('蜂鸣音播放失败:', e));
+            
+            // 方案2：屏幕闪烁
+            countdownDiv.style.color = '#ff0000';
+            setTimeout(() => {
+                countdownDiv.style.color = '#ffffff';
+            }, 200);
+            
+            // 方案3：转换为分钟格式显示
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = (elapsed % 60).toFixed(2);
+            countdownDiv.textContent = `${minutes}分${seconds}秒`;
+        }
+
+        // 单个音频播放函数
+        function playAudio(audioElement, message) {
+            audioElement.pause();
+            audioElement.currentTime = 0;
+            
+            // 应用蓝牙延迟补偿
+            let delay = 0;
+            if (!bluetoothCorrection.checked) {
+                delay = parseFloat(manualDelay.value) * 1000;
             }
-
-            initElements() {
-                this.elements = {
-                    // 按钮
-                    readyBtn: document.getElementById('readyBtn'),
-                    setBtn: document.getElementById('setBtn'),
-                    goBtn: document.getElementById('goBtn'),
-                    autoBtn: document.getElementById('autoBtn'),
-                    
-                    // 显示
-                    status: document.getElementById('status'),
-                    countdown: document.getElementById('countdown'),
-                    video: document.getElementById('video'),
-                    
-                    // 设置滑块
-                    thresholdSlider: document.getElementById('thresholdSlider'),
-                    thresholdValue: document.getElementById('thresholdValue'),
-                    delay1Min: document.getElementById('delay1Min'),
-                    delay1Max: document.getElementById('delay1Max'),
-                    delay1MinValue: document.getElementById('delay1MinValue'),
-                    delay1MaxValue: document.getElementById('delay1MaxValue'),
-                    delay2Min: document.getElementById('delay2Min'),
-                    delay2Max: document.getElementById('delay2Max'),
-                    delay2MinValue: document.getElementById('delay2MinValue'),
-                    delay2MaxValue: document.getElementById('delay2MaxValue'),
-                    startDelaySlider: document.getElementById('startDelaySlider'),
-                    startDelayValue: document.getElementById('startDelayValue'),
-                    bluetoothCorrection: document.getElementById('bluetoothCorrection'),
-                    manualDelayContainer: document.getElementById('manualDelayContainer'),
-                    manualDelay: document.getElementById('manualDelay'),
-                    
-                    // 音频
-                    audio1: document.getElementById('audio1'),
-                    audio2: document.getElementById('audio2'),
-                    audio3: document.getElementById('audio3'),
-                    
-                    // 数字音频
-                    numAudios: [
-                        document.getElementById('num0'),
-                        document.getElementById('num1'),
-                        document.getElementById('num2'),
-                        document.getElementById('num3'),
-                        document.getElementById('num4'),
-                        document.getElementById('num5'),
-                        document.getElementById('num6'),
-                        document.getElementById('num7'),
-                        document.getElementById('num8'),
-                        document.getElementById('num9')
-                    ],
-                    unitAudios: {
-                        ten: document.getElementById('unit-ten'),
-                        hundred: document.getElementById('unit-hundred'),
-                        min: document.getElementById('unit-minute'),
-                        sec: document.getElementById('unit-second'),
-                        point: document.getElementById('unit-point')
-                    }
-                };
-            }
-
-            initState() {
-                this.state = {
-                    isMonitoring: false,
-                    startTime: 0,
-                    timerInterval: null,
-                    motionDetectionInterval: null,
-                    currentAudio: null
-                };
-            }
-
-            init() {
-                this.loadSettings();
-                this.setupEventListeners();
-                this.preloadAudios();
-                this.startCamera();
-            }
-
-            // 本地设置管理
-            loadSettings() {
-                const saved = localStorage.getItem('speedPoleSettings');
-                const settings = saved ? JSON.parse(saved) : {...this.defaultSettings};
-                
-                // 应用设置到UI
-                this.elements.thresholdSlider.value = settings.threshold;
-                this.elements.delay1Min.value = settings.delay1Min;
-                this.elements.delay1Max.value = settings.delay1Max;
-                this.elements.delay2Min.value = settings.delay2Min;
-                this.elements.delay2Max.value = settings.delay2Max;
-                this.elements.startDelaySlider.value = settings.startDelay;
-                this.elements.bluetoothCorrection.checked = settings.bluetoothCorrection;
-                this.elements.manualDelay.value = settings.manualDelay;
-                
-                // 更新状态
-                this.state.currentThreshold = settings.threshold;
-                this.state.delay1Min = settings.delay1Min;
-                this.state.delay1Max = settings.delay1Max;
-                this.state.delay2Min = settings.delay2Min;
-                this.state.delay2Max = settings.delay2Max;
-                this.state.startDelay = settings.startDelay;
-                this.state.bluetoothCorrection = settings.bluetoothCorrection;
-                this.state.manualDelay = settings.manualDelay;
-                
-                // 更新UI显示
-                this.updateUI();
-                
-                // 如果是首次运行，保存默认设置
-                if (!saved) {
-                    this.saveSettings();
-                }
-            }
-
-            saveSettings() {
-                const settings = {
-                    threshold: this.state.currentThreshold,
-                    delay1Min: this.state.delay1Min,
-                    delay1Max: this.state.delay1Max,
-                    delay2Min: this.state.delay2Min,
-                    delay2Max: this.state.delay2Max,
-                    startDelay: this.state.startDelay,
-                    bluetoothCorrection: this.state.bluetoothCorrection,
-                    manualDelay: this.state.manualDelay
-                };
-                localStorage.setItem('speedPoleSettings', JSON.stringify(settings));
-            }
-
-            updateUI() {
-                // 更新滑块值显示
-                this.elements.thresholdValue.textContent = this.state.currentThreshold;
-                
-                this.elements.delay1MinValue.textContent = (this.state.delay1Min/1000).toFixed(1) + 's';
-                this.elements.delay1MaxValue.textContent = (this.state.delay1Max/1000).toFixed(1) + 's';
-                
-                this.elements.delay2MinValue.textContent = (this.state.delay2Min/1000).toFixed(1) + 's';
-                this.elements.delay2MaxValue.textContent = (this.state.delay2Max/1000).toFixed(1) + 's';
-                
-                this.elements.startDelayValue.textContent = this.state.startDelay + 'ms';
-                
-                // 蓝牙校准与手工延时的联动
-                this.elements.manualDelayContainer.style.display = 
-                    this.state.bluetoothCorrection ? 'none' : 'block';
-            }
-
-            // 事件监听
-            setupEventListeners() {
-                // 按钮事件
-                this.elements.readyBtn.addEventListener('click', () => this.playCommand(1));
-                this.elements.setBtn.addEventListener('click', () => this.playCommand(2));
-                this.elements.goBtn.addEventListener('click', () => this.playCommand(3));
-                this.elements.autoBtn.addEventListener('click', () => this.startAutoSequence());
-                
-                // 设置滑块事件
-                this.elements.thresholdSlider.addEventListener('input', () => {
-                    this.state.currentThreshold = parseInt(this.elements.thresholdSlider.value);
-                    this.elements.thresholdValue.textContent = this.state.currentThreshold;
-                    this.saveSettings();
-                });
-                
-                this.elements.delay1Min.addEventListener('input', () => {
-                    this.state.delay1Min = parseInt(this.elements.delay1Min.value);
-                    this.elements.delay1MinValue.textContent = (this.state.delay1Min/1000).toFixed(1) + 's';
-                    this.saveSettings();
-                });
-                
-                this.elements.delay1Max.addEventListener('input', () => {
-                    this.state.delay1Max = parseInt(this.elements.delay1Max.value);
-                    this.elements.delay1MaxValue.textContent = (this.state.delay1Max/1000).toFixed(1) + 's';
-                    this.saveSettings();
-                });
-                
-                this.elements.delay2Min.addEventListener('input', () => {
-                    this.state.delay2Min = parseInt(this.elements.delay2Min.value);
-                    this.elements.delay2MinValue.textContent = (this.state.delay2Min/1000).toFixed(1) + 's';
-                    this.saveSettings();
-                });
-                
-                this.elements.delay2Max.addEventListener('input', () => {
-                    this.state.delay2Max = parseInt(this.elements.delay2Max.value);
-                    this.elements.delay2MaxValue.textContent = (this.state.delay2Max/1000).toFixed(1) + 's';
-                    this.saveSettings();
-                });
-                
-                this.elements.startDelaySlider.addEventListener('input', () => {
-                    this.state.startDelay = parseInt(this.elements.startDelaySlider.value);
-                    this.elements.startDelayValue.textContent = this.state.startDelay + 'ms';
-                    this.saveSettings();
-                });
-                
-                this.elements.bluetoothCorrection.addEventListener('change', () => {
-                    this.state.bluetoothCorrection = this.elements.bluetoothCorrection.checked;
-                    this.elements.manualDelayContainer.style.display = 
-                        this.state.bluetoothCorrection ? 'none' : 'block';
-                    this.saveSettings();
-                });
-                
-                this.elements.manualDelay.addEventListener('change', () => {
-                    this.state.manualDelay = parseFloat(this.elements.manualDelay.value);
-                    this.saveSettings();
-                });
-            }
-
-            // 音频预载
-            preloadAudios() {
-                const allAudios = [
-                    this.elements.audio1, this.elements.audio2, this.elements.audio3,
-                    ...this.elements.numAudios,
-                    ...Object.values(this.elements.unitAudios)
-                ];
-                
-                let loadedCount = 0;
-                const total = allAudios.length;
-                
-                const checkLoaded = () => {
-                    if (++loadedCount === total) {
-                        this.elements.status.textContent = "系统就绪 (音频预载完成)";
-                    }
-                };
-                
-                allAudios.forEach(audio => {
-                    audio.addEventListener('canplaythrough', checkLoaded);
-                    audio.load();
-                });
-            }
-
-            // 播放指令音频
-            playCommand(type) {
-                const audio = this.elements[`audio${type}`];
-                const messages = ["", "就位", "预备", "出发"];
-                
-                // 停止当前播放
-                if (this.state.currentAudio) {
-                    this.state.currentAudio.pause();
-                    this.state.currentAudio.currentTime = 0;
-                }
-                
-                audio.currentTime = 0;
-                audio.play()
+            
+            setTimeout(() => {
+                audioElement.play()
                     .then(() => {
-                        this.state.currentAudio = audio;
-                        this.elements.status.textContent = `播放: ${messages[type]}`;
-                        
-                        // 如果是出发指令，开始计时
-                        if (type === 3) {
-                            const delay = this.state.bluetoothCorrection ? 
-                                this.state.startDelay : 
-                                this.state.manualDelay * 1000;
-                            
-                            setTimeout(() => this.startTimerAndDetection(), delay);
+                        statusDiv.textContent = message;
+                        if (audioElement === audio3) {
+                            startTimerAndDetection();
                         }
                     })
-                    .catch(e => {
-                        this.elements.status.textContent = `播放失败: ${e.message}`;
-                        console.error(e);
+                    .catch(error => {
+                        statusDiv.textContent = `播放错误: ${error.message}`;
+                        console.error('播放错误:', error);
                     });
-            }
+            }, delay);
+        }
 
-            // 自动播放序列
-            startAutoSequence() {
-                this.elements.status.textContent = "自动播放开始...";
-                
-                const initialDelay = 200 + Math.random() * 300; // 0.2-0.5秒
-                const delay1 = this.state.delay1Min + Math.random() * (this.state.delay1Max - this.state.delay1Min);
-                const delay2 = this.state.delay2Min + Math.random() * (this.state.delay2Max - this.state.delay2Min);
+        // 按钮事件监听
+        readyBtn.addEventListener('click', () => {
+            playAudio(audio1, "播放: 就位");
+        });
+
+        setBtn.addEventListener('click', () => {
+            playAudio(audio2, "播放: 预备");
+        });
+
+        goBtn.addEventListener('click', () => {
+            playAudio(audio3, "播放: 出发");
+        });
+
+        // 自动播放序列
+        autoBtn.addEventListener('click', () => {
+            statusDiv.textContent = "自动播放序列开始...";
+            
+            const initialDelay = 200 + Math.random() * 300; // 0.2-0.5秒
+            const delay1 = parseFloat(delay1Min.value) * 1000 + 
+                         Math.random() * (parseFloat(delay1Max.value) - parseFloat(delay1Min.value)) * 1000;
+            const delay2 = parseFloat(delay2Min.value) * 1000 + 
+                         Math.random() * (parseFloat(delay2Max.value) - parseFloat(delay2Min.value)) * 1000;
+            
+            statusDiv.innerHTML = `自动播放中:<br>
+                                 初始延迟: ${(initialDelay/1000).toFixed(1)}秒<br>
+                                 就位 → 预备: ${(delay1/1000).toFixed(1)}秒<br>
+                                 预备 → 出发: ${(delay2/1000).toFixed(1)}秒`;
+            
+            setTimeout(() => {
+                playAudio(audio1, "播放: 就位");
                 
                 setTimeout(() => {
-                    this.playCommand(1);
-                    setTimeout(() => {
-                        this.playCommand(2);
-                        setTimeout(() => {
-                            this.playCommand(3);
-                        }, delay2);
-                    }, delay1);
-                }, initialDelay);
-            }
-
-            // 计时功能
-            startTimerAndDetection() {
-                this.state.startTime = Date.now();
-                this.state.isMonitoring = true;
-                this.elements.status.textContent = "计时中...";
-                
-                // 计时器
-                this.state.timerInterval = setInterval(() => {
-                    const elapsed = (Date.now() - this.state.startTime) / 1000;
-                    this.elements.countdown.textContent = elapsed.toFixed(3) + "秒";
-                }, 10);
-                
-                // 运动检测
-                this.state.motionDetectionInterval = setInterval(() => this.checkMotion(), 200);
-            }
-
-            checkMotion() {
-                if (!this.state.isMonitoring) return;
-                
-                // 简化的运动检测逻辑
-                const diff = this.simulateMotionDetection();
-                
-                if (diff > this.state.currentThreshold) {
-                    this.stopTimer();
-                    this.announceTime((Date.now() - this.state.startTime) / 1000);
-                }
-            }
-
-            simulateMotionDetection() {
-                return Math.random() * 30;
-            }
-
-            stopTimer() {
-                clearInterval(this.state.timerInterval);
-                clearInterval(this.state.motionDetectionInterval);
-                this.state.isMonitoring = false;
-            }
-
-            // 数字音频播报系统
-            async announceTime(seconds) {
-                const timeStr = this.formatTime(seconds);
-                this.elements.status.textContent = `计时结束: ${timeStr}`;
-                
-                // 将时间字符串转换为音频序列
-                const audioSequence = this.timeToAudioSequence(timeStr);
-                
-                // 顺序播放音频
-                for (const audio of audioSequence) {
-                    try {
-                        await this.playAudio(audio);
-                    } catch (e) {
-                        console.error('音频播放失败:', e);
-                        break;
-                    }
-                }
-            }
-
-            // 格式化时间为发音字符串
-            formatTime(seconds) {
-                const mins = Math.floor(seconds / 60);
-                const secs = (seconds % 60).toFixed(3);
-                
-                if (mins > 0) {
-                    return `${mins}分${secs}秒`;
-                } else {
-                    return `${secs}秒`;
-                }
-            }
-
-            // 将时间字符串转换为音频对象数组
-            timeToAudioSequence(timeStr) {
-                const sequence = [];
-                
-                // 示例: "1分43.432秒" -> ["num1", "unit-min", "num4", "num3", "unit-point", "num4", "num3", "num2", "unit-sec"]
-                for (let i = 0; i < timeStr.length; i++) {
-                    const char = timeStr[i];
+                    playAudio(audio2, "播放: 预备");
                     
-                    if (char >= '0' && char <= '9') {
-                        sequence.push(this.elements.numAudios[parseInt(char)]);
-                    } else if (char === '分') {
-                        sequence.push(this.elements.unitAudios.min);
-                    } else if (char === '.') {
-                        sequence.push(this.elements.unitAudios.point);
-                    } else if (char === '秒') {
-                        sequence.push(this.elements.unitAudios.sec);
-                    }
-                }
-                
-                return sequence;
-            }
+                    setTimeout(() => {
+                        playAudio(audio3, "播放: 出发");
+                        statusDiv.textContent = "自动播放序列完成";
+                    }, delay2);
+                }, delay1);
+            }, initialDelay);
+        });
 
-            // 播放单个音频(返回Promise)
-            playAudio(audio) {
-                return new Promise((resolve, reject) => {
-                    audio.currentTime = 0;
-                    audio.play()
-                        .then(() => {
-                            audio.onended = resolve;
-                        })
-                        .catch(reject);
+        // 开始计时和运动检测
+        function startTimerAndDetection() {
+            startTime = Date.now();
+            statusDiv.textContent = "计时中...检测运动中";
+            motionStatus.textContent = "等待运动...";
+            motionStatus.className = "";
+            isMonitoring = true;
+            
+            // 启动计时显示
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                countdownDiv.textContent = elapsed.toFixed(2) + "秒";
+            }, 10);
+            
+            // 启动运动检测
+            lastFrame = null;
+            if (motionDetectionInterval) clearInterval(motionDetectionInterval);
+            motionDetectionInterval = setInterval(checkMotion, 200);
+        }
+
+        // 启动后置摄像头
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' }
                 });
-            }
-
-            // 启动摄像头
-            async startCamera() {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: 'environment' }
-                    });
-                    this.elements.video.srcObject = stream;
-                } catch (err) {
-                    this.elements.status.textContent = "摄像头错误: " + err.message;
-                }
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                };
+            } catch (err) {
+                statusDiv.textContent = "摄像头访问失败: " + err.message;
+                console.error(err);
             }
         }
 
-        // 启动应用
-        window.addEventListener('load', () => new SpeedPoleApp());
+        // 检测运动（只计算中央40%区域）
+        function checkMotion() {
+            if (!isMonitoring) return;
+            
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            if (lastFrame) {
+                const centerStartX = Math.floor(canvas.width * 0.3);
+                const centerEndX = Math.floor(canvas.width * 0.7);
+                const centerWidth = centerEndX - centerStartX;
+                
+                const centerFrame = ctx.getImageData(centerStartX, 0, centerWidth, canvas.height);
+                const diff = compareFrames(lastFrame, centerFrame);
+                
+                if (diff > currentThreshold) {
+                    motionStatus.textContent = `检测到运动! (强度: ${diff.toFixed(1)})`;
+                    motionStatus.className = "motion-alert";
+                    stopTimer();
+                } else {
+                    motionStatus.textContent = `检测中...当前差异: ${diff.toFixed(1)}`;
+                }
+            }
+            
+            const centerStartX = Math.floor(canvas.width * 0.3);
+            const centerEndX = Math.floor(canvas.width * 0.7);
+            lastFrame = ctx.getImageData(centerStartX, 0, centerEndX - centerStartX, canvas.height);
+        }
+
+        // 比较两帧差异
+        function compareFrames(frame1, frame2) {
+            let diff = 0;
+            const pixelCount = frame1.width * frame1.height;
+            
+            for (let i = 0; i < frame1.data.length; i += 4) {
+                diff += Math.abs(frame1.data[i] - frame2.data[i]) + 
+                        Math.abs(frame1.data[i+1] - frame2.data[i+1]) + 
+                        Math.abs(frame1.data[i+2] - frame2.data[i+2]);
+            }
+            return diff / (pixelCount * 3);
+        }
+
+        // 停止计时
+        function stopTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            if (motionDetectionInterval) clearInterval(motionDetectionInterval);
+            
+            const elapsed = (Date.now() - startTime) / 1000;
+            statusDiv.textContent = `计时结束! 最终时间: ${elapsed.toFixed(2)}秒`;
+            motionStatus.textContent = "计时已停止";
+            isMonitoring = false;
+            
+            // 播报时长（替代语音方案）
+            announceTime(elapsed);
+        }
     </script>
 </body>
 </html>
