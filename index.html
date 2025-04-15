@@ -43,9 +43,6 @@
         #autoBtn {
             background-color: #9b59b6;
         }
-        #flipCameraBtn {
-            background-color: #34495e;
-        }
         .status {
             margin-top: 20px;
             padding: 15px;
@@ -53,18 +50,10 @@
             background-color: #ecf0f1;
             min-height: 60px;
         }
-        .countdown {
-            font-size: 24px;
-            font-weight: bold;
-            color: #e74c3c;
-            margin: 10px 0;
-            text-align: center;
-        }
         #cameraContainer {
             margin-bottom: 15px;
             width: 100%;
             position: relative;
-            display: none;
         }
         #video {
             width: 100%;
@@ -84,6 +73,16 @@
             transform: translateX(-1px);
             z-index: 10;
         }
+        #detectionArea {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 30%;
+            right: 30%;
+            border: 2px dashed rgba(0, 255, 0, 0.5);
+            z-index: 5;
+            pointer-events: none;
+        }
         .motion-alert {
             color: red;
             font-weight: bold;
@@ -96,16 +95,41 @@
             justify-content: space-between;
             margin-top: 5px;
         }
+        .timer-display {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            text-shadow: 0 0 5px black;
+            z-index: 20;
+        }
+        .motion-display {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            color: white;
+            font-size: 16px;
+            text-align: center;
+            text-shadow: 0 0 3px black;
+            z-index: 20;
+        }
     </style>
 </head>
 <body>
     <h1>速桩发令器</h1>
     
     <div id="cameraContainer">
+        <div class="timer-display" id="countdown">0.00秒</div>
+        <div class="motion-display" id="motionStatus">等待启动...</div>
         <div id="centerLine"></div>
+        <div id="detectionArea"></div>
         <video id="video" autoplay playsinline></video>
         <canvas id="canvas"></canvas>
-        <p id="motionStatus">摄像头未检测到运动</p>
     </div>
 
     <div class="btn-container">
@@ -116,22 +140,18 @@
         <button id="goBtn" class="btn">出发</button>
         <button id="autoBtn" class="btn">自动</button>
     </div>
-    <div class="btn-container">
-        <button id="flipCameraBtn" class="btn">切换</button>
-    </div>
 
     <div class="threshold-control">
         <p>运动检测灵敏度</p>
-        <input type="range" id="thresholdSlider" min="10" max="100" value="15">
+        <input type="range" id="thresholdSlider" min="5" max="50" value="12">
         <div class="threshold-label">
             <span>高敏感</span>
             <span>低敏感</span>
         </div>
-        <p>当前阈值: <span id="thresholdValue">30</span></p>
+        <p>当前阈值: <span id="thresholdValue">12</span></p>
     </div>
     
     <div id="status" class="status">准备就绪</div>
-    <div id="countdown" class="countdown"></div>
 
     <audio id="audio1" src="1.mp3"></audio>
     <audio id="audio2" src="2.mp3"></audio>
@@ -143,7 +163,6 @@
         const setBtn = document.getElementById('setBtn');
         const goBtn = document.getElementById('goBtn');
         const autoBtn = document.getElementById('autoBtn');
-        const flipCameraBtn = document.getElementById('flipCameraBtn');
         const statusDiv = document.getElementById('status');
         const countdownDiv = document.getElementById('countdown');
         const cameraContainer = document.getElementById('cameraContainer');
@@ -164,8 +183,30 @@
         let motionDetectionInterval;
         let startTime;
         let timerInterval;
-        let currentThreshold = 30;
+        let currentThreshold = 12;
         let currentStream = null;
+
+        // 初始化
+        window.addEventListener('load', () => {
+            // 设置默认阈值
+            thresholdValue.textContent = currentThreshold;
+            
+            // 检查音频
+            const audios = [audio1, audio2, audio3];
+            let allLoaded = true;
+            audios.forEach((audio, index) => {
+                if (audio.readyState === 0) {
+                    allLoaded = false;
+                    console.warn(`音频${index+1}可能未正确加载`);
+                }
+            });
+            if (!allLoaded) {
+                statusDiv.textContent = "注意: 部分音频可能未正确加载，请检查控制台";
+            }
+            
+            // 自动开启后置摄像头
+            startCamera();
+        });
 
         // 更新阈值显示
         thresholdSlider.addEventListener('input', (e) => {
@@ -195,54 +236,53 @@
         // 按钮事件监听
         readyBtn.addEventListener('click', () => {
             playAudio(audio1, "播放: 就位");
-            countdownDiv.textContent = "";
         });
 
         setBtn.addEventListener('click', () => {
             playAudio(audio2, "播放: 预备");
-            countdownDiv.textContent = "";
         });
 
         goBtn.addEventListener('click', () => {
             playAudio(audio3, "播放: 出发");
-            countdownDiv.textContent = "";
         });
 
         // 自动播放序列
         autoBtn.addEventListener('click', () => {
             statusDiv.textContent = "自动播放序列开始...";
             
+            const initialDelay = 200 + Math.random() * 300; // 0.2-0.5秒
             const delay1 = 2500 + Math.random() * 500; // 2.5-3秒
             const delay2 = 2800 + Math.random() * 1200; // 2.8-4秒
             
             statusDiv.innerHTML = `自动播放中:<br>
+                                 初始延迟: ${(initialDelay/1000).toFixed(1)}秒<br>
                                  就位 → 预备: ${(delay1/1000).toFixed(1)}秒<br>
                                  预备 → 出发: ${(delay2/1000).toFixed(1)}秒`;
             
-            playAudio(audio1, "播放: 就位");
-            
             setTimeout(() => {
-                playAudio(audio2, "播放: 预备");
+                playAudio(audio1, "播放: 就位");
                 
                 setTimeout(() => {
-                    playAudio(audio3, "播放: 出发");
-                    statusDiv.textContent = "自动播放序列完成";
-                }, delay2);
-            }, delay1);
+                    playAudio(audio2, "播放: 预备");
+                    
+                    setTimeout(() => {
+                        playAudio(audio3, "播放: 出发");
+                        statusDiv.textContent = "自动播放序列完成";
+                    }, delay2);
+                }, delay1);
+            }, initialDelay);
         });
 
         // 开始计时和运动检测
         function startTimerAndDetection() {
-            if (!isMonitoring) {
-                startCamera();
-            }
-            
             startTime = Date.now();
             statusDiv.textContent = "计时中...检测运动中";
             motionStatus.textContent = "等待运动...";
             motionStatus.className = "";
+            isMonitoring = true;
             
             // 启动计时显示
+            if (timerInterval) clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 const elapsed = (Date.now() - startTime) / 1000;
                 countdownDiv.textContent = elapsed.toFixed(2) + "秒";
@@ -250,18 +290,15 @@
             
             // 启动运动检测
             lastFrame = null;
+            if (motionDetectionInterval) clearInterval(motionDetectionInterval);
             motionDetectionInterval = setInterval(checkMotion, 200);
         }
 
-        // 启动摄像头
+        // 启动后置摄像头
         async function startCamera() {
-            if (currentStream) {
-                stopCamera();
-            }
-            
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' } // 默认后置
+                    video: { facingMode: 'environment' } // 固定后置摄像头
                 });
                 video.srcObject = stream;
                 currentStream = stream;
@@ -269,45 +306,30 @@
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
                 };
-                cameraContainer.style.display = 'block';
-                isMonitoring = true;
             } catch (err) {
                 statusDiv.textContent = "摄像头访问失败: " + err.message;
                 console.error(err);
             }
         }
 
-        // 切换摄像头
-        async function flipCamera() {
-            if (!currentStream) return;
-            
-            const constraints = {
-                video: {
-                    facingMode: currentStream.getVideoTracks()[0].getSettings().facingMode === 'user' 
-                        ? 'environment' 
-                        : 'user'
-                }
-            };
-            
-            stopCamera();
-            
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = stream;
-                currentStream = stream;
-            } catch (err) {
-                statusDiv.textContent = "摄像头切换失败: " + err.message;
-                console.error(err);
-            }
-        }
-
-        // 检测运动
+        // 检测运动（只计算中央40%区域）
         function checkMotion() {
+            if (!isMonitoring) return;
+            
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
             
             if (lastFrame) {
-                const diff = compareFrames(lastFrame.data, currentFrame.data);
+                // 计算中央40%区域的边界
+                const centerStartX = Math.floor(canvas.width * 0.3);
+                const centerEndX = Math.floor(canvas.width * 0.7);
+                const centerWidth = centerEndX - centerStartX;
+                
+                // 提取中央40%区域的图像数据
+                const centerFrame = ctx.getImageData(centerStartX, 0, centerWidth, canvas.height);
+                
+                // 计算差异
+                const diff = compareFrames(lastFrame, centerFrame);
                 
                 if (diff > currentThreshold) {
                     motionStatus.textContent = `检测到运动! (强度: ${diff.toFixed(1)})`;
@@ -315,22 +337,27 @@
                     stopTimer();
                 } else {
                     motionStatus.textContent = `检测中...当前差异: ${diff.toFixed(1)}`;
-                    motionStatus.className = "";
                 }
             }
             
-            lastFrame = currentFrame;
+            // 保存当前帧的中央40%区域
+            const centerStartX = Math.floor(canvas.width * 0.3);
+            const centerEndX = Math.floor(canvas.width * 0.7);
+            lastFrame = ctx.getImageData(centerStartX, 0, centerEndX - centerStartX, canvas.height);
         }
 
-        // 比较两帧差异
+        // 比较两帧差异（优化版）
         function compareFrames(frame1, frame2) {
             let diff = 0;
-            for (let i = 0; i < frame1.length; i += 4) {
-                diff += Math.abs(frame1[i] - frame2[i]) +     // R
-                        Math.abs(frame1[i+1] - frame2[i+1]) + // G
-                        Math.abs(frame1[i+2] - frame2[i+2]);  // B
+            const pixelCount = frame1.width * frame1.height;
+            
+            // 只比较中央40%区域
+            for (let i = 0; i < frame1.data.length; i += 4) {
+                diff += Math.abs(frame1.data[i] - frame2.data[i]) +     // R
+                        Math.abs(frame1.data[i+1] - frame2.data[i+1]) + // G
+                        Math.abs(frame1.data[i+2] - frame2.data[i+2]);  // B
             }
-            return diff / (frame1.length / 4 * 3); // 平均差异
+            return diff / (pixelCount * 3); // 平均差异
         }
 
         // 停止计时
@@ -340,37 +367,9 @@
             
             const elapsed = (Date.now() - startTime) / 1000;
             statusDiv.textContent = `计时结束! 最终时间: ${elapsed.toFixed(2)}秒`;
-            motionStatus.textContent = "已停止检测";
-        }
-
-        // 停止摄像头
-        function stopCamera() {
-            if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
-                currentStream = null;
-            }
+            motionStatus.textContent = "计时已停止";
             isMonitoring = false;
         }
-
-        // 绑定切换按钮事件
-        flipCameraBtn.addEventListener('click', flipCamera);
-
-        // 音频加载检查
-        window.addEventListener('load', () => {
-            const audios = [audio1, audio2, audio3];
-            let allLoaded = true;
-            
-            audios.forEach((audio, index) => {
-                if (audio.readyState === 0) {
-                    allLoaded = false;
-                    console.warn(`音频${index+1}可能未正确加载`);
-                }
-            });
-            
-            if (!allLoaded) {
-                statusDiv.textContent = "注意: 部分音频可能未正确加载，请检查控制台";
-            }
-        });
     </script>
 </body>
 </html>
