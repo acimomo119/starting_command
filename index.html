@@ -173,21 +173,30 @@
 
     <div class="setting-group">
         <div class="setting-item">
-            <label>就位→预备间隔: <span id="delay1Value">2.5</span>秒</label>
-            <input type="range" id="delay1" min="1" max="5" step="0.1" value="2.5">
-            <div class="setting-hint">设置第一次指令间隔时间</div>
+            <label>初始延时: <span id="initialDelayMinValue">0.5</span>-<span id="initialDelayMaxValue">1.0</span>秒</label>
+            <div>
+                最短: <input type="range" id="initialDelayMin" min="0.1" max="2" step="0.1" value="0.5">
+                最长: <input type="range" id="initialDelayMax" min="0.1" max="2" step="0.1" value="1.0">
+            </div>
+            <div class="setting-hint">自动模式开始前的随机等待时间</div>
         </div>
         
         <div class="setting-item">
-            <label>预备→出发间隔: <span id="delay2Value">3.0</span>秒</label>
-            <input type="range" id="delay2" min="1" max="6" step="0.1" value="3.0">
-            <div class="setting-hint">设置第二次指令间隔时间</div>
+            <label>就位→预备间隔: <span id="delay1MinValue">2.5</span>-<span id="delay1MaxValue">3.0</span>秒</label>
+            <div>
+                最短: <input type="range" id="delay1Min" min="1" max="5" step="0.1" value="2.5">
+                最长: <input type="range" id="delay1Max" min="1" max="5" step="0.1" value="3.0">
+            </div>
+            <div class="setting-hint">设置第一次指令间隔时间范围</div>
         </div>
-
+        
         <div class="setting-item">
-            <label>自动开始前延时: <span id="initialDelayValue">0.5</span>秒</label>
-            <input type="range" id="initialDelay" min="0.1" max="2" step="0.1" value="0.5">
-            <div class="setting-hint">自动模式开始前的等待时间</div>
+            <label>预备→出发间隔: <span id="delay2MinValue">2.8</span>-<span id="delay2MaxValue">4.0</span>秒</label>
+            <div>
+                最短: <input type="range" id="delay2Min" min="1" max="6" step="0.1" value="2.8">
+                最长: <input type="range" id="delay2Max" min="1" max="6" step="0.1" value="4.0">
+            </div>
+            <div class="setting-hint">设置第二次指令间隔时间范围</div>
         </div>
     </div>
 
@@ -227,12 +236,18 @@
         const motionStatus = document.getElementById('motionStatus');
         const thresholdSlider = document.getElementById('thresholdSlider');
         const thresholdValue = document.getElementById('thresholdValue');
-        const delay1 = document.getElementById('delay1');
-        const delay1Value = document.getElementById('delay1Value');
-        const delay2 = document.getElementById('delay2');
-        const delay2Value = document.getElementById('delay2Value');
-        const initialDelay = document.getElementById('initialDelay');
-        const initialDelayValue = document.getElementById('initialDelayValue');
+        const initialDelayMin = document.getElementById('initialDelayMin');
+        const initialDelayMax = document.getElementById('initialDelayMax');
+        const initialDelayMinValue = document.getElementById('initialDelayMinValue');
+        const initialDelayMaxValue = document.getElementById('initialDelayMaxValue');
+        const delay1Min = document.getElementById('delay1Min');
+        const delay1Max = document.getElementById('delay1Max');
+        const delay1MinValue = document.getElementById('delay1MinValue');
+        const delay1MaxValue = document.getElementById('delay1MaxValue');
+        const delay2Min = document.getElementById('delay2Min');
+        const delay2Max = document.getElementById('delay2Max');
+        const delay2MinValue = document.getElementById('delay2MinValue');
+        const delay2MaxValue = document.getElementById('delay2MaxValue');
         const bluetoothCorrection = document.getElementById('bluetoothCorrection');
         const manualDelayContainer = document.getElementById('manualDelayContainer');
         const manualDelay = document.getElementById('manualDelay');
@@ -249,9 +264,11 @@
         let startTime;
         let timerInterval;
         let currentThreshold = 12;
+        let audioContext;
+        let audioDelay = 0;
 
         // 初始化
-        window.addEventListener('load', () => {
+        window.addEventListener('load', async () => {
             // 预载音频
             audio1.load();
             audio2.load();
@@ -259,18 +276,77 @@
             
             // 设置滑块事件
             thresholdSlider.addEventListener('input', updateThreshold);
-            delay1.addEventListener('input', () => delay1Value.textContent = delay1.value);
-            delay2.addEventListener('input', () => delay2Value.textContent = delay2.value);
-            initialDelay.addEventListener('input', () => initialDelayValue.textContent = initialDelay.value);
+            initialDelayMin.addEventListener('input', () => initialDelayMinValue.textContent = initialDelayMin.value);
+            initialDelayMax.addEventListener('input', () => initialDelayMaxValue.textContent = initialDelayMax.value);
+            delay1Min.addEventListener('input', () => delay1MinValue.textContent = delay1Min.value);
+            delay1Max.addEventListener('input', () => delay1MaxValue.textContent = delay1Max.value);
+            delay2Min.addEventListener('input', () => delay2MinValue.textContent = delay2Min.value);
+            delay2Max.addEventListener('input', () => delay2MaxValue.textContent = delay2Max.value);
             
             // 蓝牙校准切换
             bluetoothCorrection.addEventListener('change', function() {
                 manualDelayContainer.style.display = this.checked ? 'none' : 'block';
+                if(this.checked) {
+                    initBluetoothCorrection();
+                }
             });
+            
+            // 初始化蓝牙音频延迟检测
+            if(bluetoothCorrection.checked) {
+                await initBluetoothCorrection();
+            }
             
             // 自动开启后置摄像头
             startCamera();
         });
+
+        // 初始化蓝牙音频延迟检测
+        async function initBluetoothCorrection() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // 创建测试音频
+                const oscillator = audioContext.createOscillator();
+                oscillator.type = 'sine';
+                oscillator.frequency.value = 440;
+                
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048;
+                
+                oscillator.connect(analyser);
+                analyser.connect(audioContext.destination);
+                
+                // 开始测试
+                oscillator.start(0);
+                
+                // 检测延迟
+                const startTime = audioContext.currentTime;
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                return new Promise((resolve) => {
+                    const checkInterval = setInterval(() => {
+                        analyser.getByteTimeDomainData(dataArray);
+                        
+                        for (let i = 0; i < bufferLength; i++) {
+                            if (dataArray[i] > 128) {
+                                const endTime = audioContext.currentTime;
+                                audioDelay = (endTime - startTime) * 1000; // 转换为毫秒
+                                console.log(`检测到蓝牙音频延迟: ${audioDelay.toFixed(2)}ms`);
+                                oscillator.stop();
+                                clearInterval(checkInterval);
+                                resolve();
+                                return;
+                            }
+                        }
+                    }, 10);
+                });
+            } catch (error) {
+                console.error('蓝牙延迟检测失败:', error);
+                audioDelay = 0;
+                return Promise.resolve();
+            }
+        }
 
         // 更新阈值
         function updateThreshold() {
@@ -283,9 +359,11 @@
             audioElement.pause();
             audioElement.currentTime = 0;
             
-            // 应用蓝牙延迟补偿
+            // 应用延迟补偿
             let delay = 0;
-            if (!bluetoothCorrection.checked) {
+            if (bluetoothCorrection.checked) {
+                delay = audioDelay;
+            } else {
                 delay = parseFloat(manualDelay.value) * 1000;
             }
             
@@ -325,14 +403,19 @@
         autoBtn.addEventListener('click', () => {
             statusDiv.textContent = "自动播放序列开始...";
             
-            const initialDelayTime = parseFloat(initialDelay.value) * 1000;
-            const delay1Time = parseFloat(delay1.value) * 1000;
-            const delay2Time = parseFloat(delay2.value) * 1000;
+            const initialDelayTime = (parseFloat(initialDelayMin.value) + 
+                                   Math.random() * (parseFloat(initialDelayMax.value) - parseFloat(initialDelayMin.value))) * 1000;
+            
+            const delay1Time = (parseFloat(delay1Min.value) + 
+                              Math.random() * (parseFloat(delay1Max.value) - parseFloat(delay1Min.value))) * 1000;
+            
+            const delay2Time = (parseFloat(delay2Min.value) + 
+                              Math.random() * (parseFloat(delay2Max.value) - parseFloat(delay2Min.value))) * 1000;
             
             statusDiv.innerHTML = `自动播放中:<br>
-                                 初始延迟: ${initialDelay.value}秒<br>
-                                 就位 → 预备: ${delay1.value}秒<br>
-                                 预备 → 出发: ${delay2.value}秒`;
+                                 初始延迟: ${(initialDelayTime/1000).toFixed(1)}秒<br>
+                                 就位 → 预备: ${(delay1Time/1000).toFixed(1)}秒<br>
+                                 预备 → 出发: ${(delay2Time/1000).toFixed(1)}秒`;
             
             setTimeout(() => {
                 playAudio(audio1, "播放: 就位");
