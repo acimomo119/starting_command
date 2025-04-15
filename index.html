@@ -12,10 +12,6 @@
             padding: 20px;
             background-color: #f5f5f5;
         }
-        h1 {
-            color: #2c3e50;
-            text-align: center;
-        }
         .btn-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -43,12 +39,13 @@
         #autoBtn {
             background-color: #9b59b6;
         }
-        .status {
-            margin-top: 20px;
+        #status {
+            margin: 15px 0;
             padding: 15px;
             border-radius: 5px;
             background-color: #ecf0f1;
             min-height: 60px;
+            order: -1; /* 移到按钮上方 */
         }
         #cameraContainer {
             margin-bottom: 15px;
@@ -87,14 +84,6 @@
             color: red;
             font-weight: bold;
         }
-        .threshold-control {
-            margin: 15px 0;
-        }
-        .threshold-label {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 5px;
-        }
         .timer-display {
             position: absolute;
             top: 10px;
@@ -118,10 +107,39 @@
             text-shadow: 0 0 3px black;
             z-index: 20;
         }
+        .settings-label {
+            text-align: center;
+            margin: 20px 0 10px;
+            font-weight: bold;
+        }
+        .setting-group {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 5px;
+        }
+        .setting-item {
+            margin-bottom: 10px;
+        }
+        .setting-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        input[type="number"] {
+            width: 60px;
+            padding: 5px;
+        }
     </style>
 </head>
 <body>
-    <h1>速桩发令器</h1>
+    <div id="status" class="status">准备就绪</div>
     
     <div id="cameraContainer">
         <div class="timer-display" id="countdown">0.00秒</div>
@@ -141,21 +159,52 @@
         <button id="autoBtn" class="btn">自动</button>
     </div>
 
-    <div class="threshold-control">
-        <p>运动检测灵敏度</p>
-        <input type="range" id="thresholdSlider" min="5" max="50" value="12">
-        <div class="threshold-label">
-            <span>高敏感</span>
-            <span>低敏感</span>
-        </div>
-        <p>当前阈值: <span id="thresholdValue">12</span></p>
-    </div>
+    <div class="settings-label">设置</div>
     
-    <div id="status" class="status">准备就绪</div>
+    <div class="setting-group">
+        <div class="setting-item">
+            <label>摄像头敏感阈值 (当前: <span id="thresholdValue">12</span>)</label>
+            <input type="range" id="thresholdSlider" min="5" max="50" value="12">
+            <div class="setting-hint">数值越小越敏感，建议范围10-30</div>
+        </div>
+    </div>
 
-    <audio id="audio1" src="1.mp3"></audio>
-    <audio id="audio2" src="2.mp3"></audio>
-    <audio id="audio3" src="3.mp3"></audio>
+    <div class="setting-group">
+        <div class="setting-item">
+            <label>就位→预备间隔: <span id="delay1MinValue">2.5</span>-<span id="delay1MaxValue">3.0</span>秒</label>
+            <div>
+                最短: <input type="range" id="delay1Min" min="1" max="5" step="0.1" value="2.5">
+                最长: <input type="range" id="delay1Max" min="1" max="5" step="0.1" value="3.0">
+            </div>
+            <div class="setting-hint">设置第一次指令间隔时间范围</div>
+        </div>
+        
+        <div class="setting-item">
+            <label>预备→出发间隔: <span id="delay2MinValue">2.8</span>-<span id="delay2MaxValue">4.0</span>秒</label>
+            <div>
+                最短: <input type="range" id="delay2Min" min="1" max="6" step="0.1" value="2.8">
+                最长: <input type="range" id="delay2Max" min="1" max="6" step="0.1" value="4.0">
+            </div>
+            <div class="setting-hint">设置第二次指令间隔时间范围</div>
+        </div>
+    </div>
+
+    <div class="setting-group">
+        <div class="setting-item">
+            <label><input type="checkbox" id="bluetoothCorrection" checked> 自动校准蓝牙音频延时</label>
+            <div class="setting-hint">启用后会自动补偿蓝牙设备的音频延迟</div>
+        </div>
+        
+        <div class="setting-item" id="manualDelayContainer" style="display:none">
+            <label>计时手工延时: <input type="number" id="manualDelay" min="0" max="5" step="0.1" value="1.0"> 秒</label>
+            <div class="setting-hint">当蓝牙校准禁用时生效，用于手动补偿延迟</div>
+        </div>
+    </div>
+
+    <audio id="audio1" src="1.mp3" preload="auto"></audio>
+    <audio id="audio2" src="2.mp3" preload="auto"></audio>
+    <audio id="audio3" src="3.mp3" preload="auto"></audio>
+    <audio id="beepAudio" src="data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV" preload="auto"></audio>
 
     <script>
         // 获取DOM元素
@@ -172,6 +221,18 @@
         const motionStatus = document.getElementById('motionStatus');
         const thresholdSlider = document.getElementById('thresholdSlider');
         const thresholdValue = document.getElementById('thresholdValue');
+        const delay1Min = document.getElementById('delay1Min');
+        const delay1Max = document.getElementById('delay1Max');
+        const delay1MinValue = document.getElementById('delay1MinValue');
+        const delay1MaxValue = document.getElementById('delay1MaxValue');
+        const delay2Min = document.getElementById('delay2Min');
+        const delay2Max = document.getElementById('delay2Max');
+        const delay2MinValue = document.getElementById('delay2MinValue');
+        const delay2MaxValue = document.getElementById('delay2MaxValue');
+        const bluetoothCorrection = document.getElementById('bluetoothCorrection');
+        const manualDelayContainer = document.getElementById('manualDelayContainer');
+        const manualDelay = document.getElementById('manualDelay');
+        const beepAudio = document.getElementById('beepAudio');
 
         const audio1 = document.getElementById('audio1');
         const audio2 = document.getElementById('audio2');
@@ -184,66 +245,79 @@
         let startTime;
         let timerInterval;
         let currentThreshold = 12;
-        let currentStream = null;
 
         // 初始化
         window.addEventListener('load', () => {
-            // 设置默认阈值
-            thresholdValue.textContent = currentThreshold;
+            // 预载音频
+            audio1.load();
+            audio2.load();
+            audio3.load();
+            beepAudio.load();
             
-            // 检查音频
-            const audios = [audio1, audio2, audio3];
-            let allLoaded = true;
-            audios.forEach((audio, index) => {
-                if (audio.readyState === 0) {
-                    allLoaded = false;
-                    console.warn(`音频${index+1}可能未正确加载`);
-                }
+            // 设置滑块事件
+            thresholdSlider.addEventListener('input', updateThreshold);
+            delay1Min.addEventListener('input', () => delay1MinValue.textContent = delay1Min.value);
+            delay1Max.addEventListener('input', () => delay1MaxValue.textContent = delay1Max.value);
+            delay2Min.addEventListener('input', () => delay2MinValue.textContent = delay2Min.value);
+            delay2Max.addEventListener('input', () => delay2MaxValue.textContent = delay2Max.value);
+            
+            // 蓝牙校准切换
+            bluetoothCorrection.addEventListener('change', function() {
+                manualDelayContainer.style.display = this.checked ? 'none' : 'block';
             });
-            if (!allLoaded) {
-                statusDiv.textContent = "注意: 部分音频可能未正确加载，请检查控制台";
-            }
             
             // 自动开启后置摄像头
             startCamera();
         });
 
-        // 语音播报函数
-        function speak(text) {
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance();
-                utterance.text = text;
-                utterance.lang = 'zh-CN';
-                utterance.rate = 0.9;
-                speechSynthesis.speak(utterance);
-            } else {
-                console.log('浏览器不支持语音合成');
-            }
+        // 更新阈值
+        function updateThreshold() {
+            currentThreshold = parseInt(thresholdSlider.value);
+            thresholdValue.textContent = currentThreshold;
         }
 
-        // 更新阈值显示
-        thresholdSlider.addEventListener('input', (e) => {
-            currentThreshold = parseInt(e.target.value);
-            thresholdValue.textContent = currentThreshold;
-        });
+        // 替代语音播报方案：蜂鸣音+屏幕闪烁
+        function announceTime(elapsed) {
+            // 方案1：播放蜂鸣音
+            beepAudio.currentTime = 0;
+            beepAudio.play().catch(e => console.log('蜂鸣音播放失败:', e));
+            
+            // 方案2：屏幕闪烁
+            countdownDiv.style.color = '#ff0000';
+            setTimeout(() => {
+                countdownDiv.style.color = '#ffffff';
+            }, 200);
+            
+            // 方案3：转换为分钟格式显示
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = (elapsed % 60).toFixed(2);
+            countdownDiv.textContent = `${minutes}分${seconds}秒`;
+        }
 
         // 单个音频播放函数
         function playAudio(audioElement, message) {
             audioElement.pause();
             audioElement.currentTime = 0;
             
-            audioElement.play()
-                .then(() => {
-                    statusDiv.textContent = message;
-                    // 如果是"出发"音频，开始计时和检测
-                    if (audioElement === audio3) {
-                        startTimerAndDetection();
-                    }
-                })
-                .catch(error => {
-                    statusDiv.textContent = `播放错误: ${error.message}`;
-                    console.error('播放错误:', error);
-                });
+            // 应用蓝牙延迟补偿
+            let delay = 0;
+            if (!bluetoothCorrection.checked) {
+                delay = parseFloat(manualDelay.value) * 1000;
+            }
+            
+            setTimeout(() => {
+                audioElement.play()
+                    .then(() => {
+                        statusDiv.textContent = message;
+                        if (audioElement === audio3) {
+                            startTimerAndDetection();
+                        }
+                    })
+                    .catch(error => {
+                        statusDiv.textContent = `播放错误: ${error.message}`;
+                        console.error('播放错误:', error);
+                    });
+            }, delay);
         }
 
         // 按钮事件监听
@@ -264,8 +338,10 @@
             statusDiv.textContent = "自动播放序列开始...";
             
             const initialDelay = 200 + Math.random() * 300; // 0.2-0.5秒
-            const delay1 = 2500 + Math.random() * 500; // 2.5-3秒
-            const delay2 = 2800 + Math.random() * 1200; // 2.8-4秒
+            const delay1 = parseFloat(delay1Min.value) * 1000 + 
+                         Math.random() * (parseFloat(delay1Max.value) - parseFloat(delay1Min.value)) * 1000;
+            const delay2 = parseFloat(delay2Min.value) * 1000 + 
+                         Math.random() * (parseFloat(delay2Max.value) - parseFloat(delay2Min.value)) * 1000;
             
             statusDiv.innerHTML = `自动播放中:<br>
                                  初始延迟: ${(initialDelay/1000).toFixed(1)}秒<br>
@@ -311,10 +387,9 @@
         async function startCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' } // 固定后置摄像头
+                    video: { facingMode: 'environment' }
                 });
                 video.srcObject = stream;
-                currentStream = stream;
                 video.onloadedmetadata = () => {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
@@ -333,15 +408,11 @@
             const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
             
             if (lastFrame) {
-                // 计算中央40%区域的边界
                 const centerStartX = Math.floor(canvas.width * 0.3);
                 const centerEndX = Math.floor(canvas.width * 0.7);
                 const centerWidth = centerEndX - centerStartX;
                 
-                // 提取中央40%区域的图像数据
                 const centerFrame = ctx.getImageData(centerStartX, 0, centerWidth, canvas.height);
-                
-                // 计算差异
                 const diff = compareFrames(lastFrame, centerFrame);
                 
                 if (diff > currentThreshold) {
@@ -353,40 +424,36 @@
                 }
             }
             
-            // 保存当前帧的中央40%区域
             const centerStartX = Math.floor(canvas.width * 0.3);
             const centerEndX = Math.floor(canvas.width * 0.7);
             lastFrame = ctx.getImageData(centerStartX, 0, centerEndX - centerStartX, canvas.height);
         }
 
-        // 比较两帧差异（优化版）
+        // 比较两帧差异
         function compareFrames(frame1, frame2) {
             let diff = 0;
             const pixelCount = frame1.width * frame1.height;
             
-            // 只比较中央40%区域
             for (let i = 0; i < frame1.data.length; i += 4) {
-                diff += Math.abs(frame1.data[i] - frame2.data[i]) +     // R
-                        Math.abs(frame1.data[i+1] - frame2.data[i+1]) + // G
-                        Math.abs(frame1.data[i+2] - frame2.data[i+2]);  // B
+                diff += Math.abs(frame1.data[i] - frame2.data[i]) + 
+                        Math.abs(frame1.data[i+1] - frame2.data[i+1]) + 
+                        Math.abs(frame1.data[i+2] - frame2.data[i+2]);
             }
-            return diff / (pixelCount * 3); // 平均差异
+            return diff / (pixelCount * 3);
         }
 
-        // 停止计时（增加语音播报）
+        // 停止计时
         function stopTimer() {
             if (timerInterval) clearInterval(timerInterval);
             if (motionDetectionInterval) clearInterval(motionDetectionInterval);
             
             const elapsed = (Date.now() - startTime) / 1000;
-            const elapsedText = `计时结束，最终时间 ${elapsed.toFixed(2)}秒`;
-            
             statusDiv.textContent = `计时结束! 最终时间: ${elapsed.toFixed(2)}秒`;
             motionStatus.textContent = "计时已停止";
             isMonitoring = false;
             
-            // 语音播报计时结果
-            speak(elapsedText);
+            // 播报时长（替代语音方案）
+            announceTime(elapsed);
         }
     </script>
 </body>
