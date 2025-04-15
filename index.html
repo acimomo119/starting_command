@@ -10,17 +10,20 @@
             max-width: 500px;
             margin: 0 auto;
             padding: 20px;
-            text-align: center;
             background-color: #f5f5f5;
         }
         h1 {
             color: #2c3e50;
+            text-align: center;
+        }
+        .btn-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
         }
         .btn {
-            display: block;
-            width: 100%;
             padding: 15px;
-            margin: 10px 0;
             font-size: 18px;
             color: white;
             border: none;
@@ -40,8 +43,8 @@
         #autoBtn {
             background-color: #9b59b6;
         }
-        #startTimerBtn {
-            background-color: #e74c3c;
+        #flipCameraBtn {
+            background-color: #34495e;
         }
         .status {
             margin-top: 20px;
@@ -55,32 +58,21 @@
             font-weight: bold;
             color: #e74c3c;
             margin: 10px 0;
+            text-align: center;
         }
         #cameraContainer {
-            margin: 20px auto;
-            width: 300px;
-            display: none;
+            margin-bottom: 15px;
+            width: 100%;
             position: relative;
+            display: none;
         }
         #video {
             width: 100%;
             background: #000;
+            border-radius: 5px;
         }
         #canvas {
             display: none;
-        }
-        .motion-alert {
-            color: red;
-            font-weight: bold;
-        }
-        .threshold-control {
-            margin: 15px 0;
-            display: none;
-        }
-        .threshold-label {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 5px;
         }
         #centerLine {
             position: absolute;
@@ -92,17 +84,42 @@
             transform: translateX(-1px);
             z-index: 10;
         }
+        .motion-alert {
+            color: red;
+            font-weight: bold;
+        }
+        .threshold-control {
+            margin: 15px 0;
+        }
+        .threshold-label {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
     <h1>速桩发令器</h1>
     
-    <button id="readyBtn" class="btn">各就位</button>
-    <button id="setBtn" class="btn">预备</button>
-    <button id="goBtn" class="btn">出发</button>
-    <button id="autoBtn" class="btn">自动播放</button>
-    <button id="startTimerBtn" class="btn">准备计时</button>
-    
+    <div id="cameraContainer">
+        <div id="centerLine"></div>
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+        <p id="motionStatus">摄像头未检测到运动</p>
+    </div>
+
+    <div class="btn-container">
+        <button id="readyBtn" class="btn">就位</button>
+        <button id="setBtn" class="btn">预备</button>
+    </div>
+    <div class="btn-container">
+        <button id="goBtn" class="btn">出发</button>
+        <button id="autoBtn" class="btn">自动</button>
+    </div>
+    <div class="btn-container">
+        <button id="flipCameraBtn" class="btn">切换</button>
+    </div>
+
     <div class="threshold-control">
         <p>运动检测灵敏度</p>
         <input type="range" id="thresholdSlider" min="10" max="100" value="30">
@@ -116,13 +133,6 @@
     <div id="status" class="status">准备就绪</div>
     <div id="countdown" class="countdown"></div>
 
-    <div id="cameraContainer">
-        <div id="centerLine"></div>
-        <video id="video" autoplay playsinline></video>
-        <canvas id="canvas"></canvas>
-        <p id="motionStatus">摄像头未检测到运动</p>
-    </div>
-
     <audio id="audio1" src="1.mp3"></audio>
     <audio id="audio2" src="2.mp3"></audio>
     <audio id="audio3" src="3.mp3"></audio>
@@ -133,7 +143,7 @@
         const setBtn = document.getElementById('setBtn');
         const goBtn = document.getElementById('goBtn');
         const autoBtn = document.getElementById('autoBtn');
-        const startTimerBtn = document.getElementById('startTimerBtn');
+        const flipCameraBtn = document.getElementById('flipCameraBtn');
         const statusDiv = document.getElementById('status');
         const countdownDiv = document.getElementById('countdown');
         const cameraContainer = document.getElementById('cameraContainer');
@@ -141,10 +151,9 @@
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const motionStatus = document.getElementById('motionStatus');
-        const thresholdControl = document.querySelector('.threshold-control');
         const thresholdSlider = document.getElementById('thresholdSlider');
         const thresholdValue = document.getElementById('thresholdValue');
-        
+
         const audio1 = document.getElementById('audio1');
         const audio2 = document.getElementById('audio2');
         const audio3 = document.getElementById('audio3');
@@ -156,6 +165,7 @@
         let startTime;
         let timerInterval;
         let currentThreshold = 30;
+        let currentStream = null;
 
         // 更新阈值显示
         thresholdSlider.addEventListener('input', (e) => {
@@ -171,9 +181,9 @@
             audioElement.play()
                 .then(() => {
                     statusDiv.textContent = message;
-                    // 如果是"出发"音频，开始计时
-                    if (audioElement === audio3 && isMonitoring) {
-                        startTimer();
+                    // 如果是"出发"音频，开始计时和检测
+                    if (audioElement === audio3) {
+                        startTimerAndDetection();
                     }
                 })
                 .catch(error => {
@@ -184,7 +194,7 @@
 
         // 按钮事件监听
         readyBtn.addEventListener('click', () => {
-            playAudio(audio1, "播放: 各就位");
+            playAudio(audio1, "播放: 就位");
             countdownDiv.textContent = "";
         });
 
@@ -202,14 +212,14 @@
         autoBtn.addEventListener('click', () => {
             statusDiv.textContent = "自动播放序列开始...";
             
-            const delay1 = 1500 + Math.random() * 1500; // 1.5-3秒
-            const delay2 = 2500 + Math.random() * 2500; // 2.5-5秒
+            const delay1 = 2500 + Math.random() * 500; // 2.5-3秒
+            const delay2 = 2800 + Math.random() * 1200; // 2.8-4秒
             
             statusDiv.innerHTML = `自动播放中:<br>
-                                 各就位 → 预备: ${(delay1/1000).toFixed(1)}秒<br>
+                                 就位 → 预备: ${(delay1/1000).toFixed(1)}秒<br>
                                  预备 → 出发: ${(delay2/1000).toFixed(1)}秒`;
             
-            playAudio(audio1, "播放: 各就位");
+            playAudio(audio1, "播放: 就位");
             
             setTimeout(() => {
                 playAudio(audio2, "播放: 预备");
@@ -217,47 +227,16 @@
                 setTimeout(() => {
                     playAudio(audio3, "播放: 出发");
                     statusDiv.textContent = "自动播放序列完成";
-                    countdownDiv.textContent = "";
                 }, delay2);
             }, delay1);
         });
 
-        // 准备计时和运动检测
-        startTimerBtn.addEventListener('click', () => {
-            if (isMonitoring) {
-                stopTimer();
-                return;
+        // 开始计时和运动检测
+        function startTimerAndDetection() {
+            if (!isMonitoring) {
+                startCamera();
             }
             
-            statusDiv.textContent = "准备计时...请允许摄像头访问";
-            countdownDiv.textContent = "";
-            thresholdControl.style.display = 'block';
-            
-            startCamera();
-        });
-
-        // 启动摄像头
-        function startCamera() {
-            cameraContainer.style.display = 'block';
-            
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    video.srcObject = stream;
-                    video.onloadedmetadata = () => {
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        statusDiv.textContent = "摄像头已就绪，等待'出发'指令后开始计时";
-                        isMonitoring = true;
-                    };
-                })
-                .catch(err => {
-                    statusDiv.textContent = "摄像头访问失败: " + err.message;
-                    console.error(err);
-                });
-        }
-
-        // 开始计时
-        function startTimer() {
             startTime = Date.now();
             statusDiv.textContent = "计时中...检测运动中";
             motionStatus.textContent = "等待运动...";
@@ -272,6 +251,54 @@
             // 启动运动检测
             lastFrame = null;
             motionDetectionInterval = setInterval(checkMotion, 200);
+        }
+
+        // 启动摄像头
+        async function startCamera() {
+            if (currentStream) {
+                stopCamera();
+            }
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } // 默认后置
+                });
+                video.srcObject = stream;
+                currentStream = stream;
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                };
+                cameraContainer.style.display = 'block';
+                isMonitoring = true;
+            } catch (err) {
+                statusDiv.textContent = "摄像头访问失败: " + err.message;
+                console.error(err);
+            }
+        }
+
+        // 切换摄像头
+        async function flipCamera() {
+            if (!currentStream) return;
+            
+            const constraints = {
+                video: {
+                    facingMode: currentStream.getVideoTracks()[0].getSettings().facingMode === 'user' 
+                        ? 'environment' 
+                        : 'user'
+                }
+            };
+            
+            stopCamera();
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                currentStream = stream;
+            } catch (err) {
+                statusDiv.textContent = "摄像头切换失败: " + err.message;
+                console.error(err);
+            }
         }
 
         // 检测运动
@@ -314,10 +341,19 @@
             const elapsed = (Date.now() - startTime) / 1000;
             statusDiv.textContent = `计时结束! 最终时间: ${elapsed.toFixed(2)}秒`;
             motionStatus.textContent = "已停止检测";
-            
-            // 不关闭摄像头，允许再次计时
+        }
+
+        // 停止摄像头
+        function stopCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
             isMonitoring = false;
         }
+
+        // 绑定切换按钮事件
+        flipCameraBtn.addEventListener('click', flipCamera);
 
         // 音频加载检查
         window.addEventListener('load', () => {
